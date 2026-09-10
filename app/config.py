@@ -75,7 +75,6 @@ def siapkan_database_url(mentah: str) -> tuple[str, dict, dict]:
 
         if pakai_pgbouncer or "-pooler" in host or "pgbouncer" in host:
             connect_args["statement_cache_size"] = 0
-            engine_kwargs["prepared_statement_cache_size"] = 0
 
         url = urlunsplit((bagian.scheme, bagian.netloc, bagian.path, urlencode(param), bagian.fragment))
 
