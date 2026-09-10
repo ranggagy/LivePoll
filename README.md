@@ -107,59 +107,117 @@ Partisipan di jaringan yang sama bisa membuka lewat IP komputer kamu, misal
 
 ---
 
-## Deploy ke Render (free tier)
+## Deploy ke Render + Neon
 
-### Cara cepat — Blueprint
+Susunannya: **aplikasi di Render** (free web service) dan **database di Neon**
+(Postgres free tier). Neon dipilih karena free tier-nya tidak kedaluwarsa,
+sedangkan Postgres free di Render dihapus setelah masa gratisnya habis.
 
-1. Push folder ini ke satu repository GitHub.
-2. Di Render: **New → Blueprint**, pilih repo tersebut.
-3. Render membaca `render.yaml` dan otomatis membuat dua resource:
-   - web service `live-polling`
-   - database Postgres `live-polling-db` (variabel `DATABASE_URL` tersambung otomatis)
-4. Klik **Apply**, tunggu build selesai (±3–5 menit).
-5. Buka `https://<nama-app>.onrender.com/admin`.
+Total sekitar 15 menit.
+
+### Langkah 1 — Buat database di Neon
+
+1. Daftar di [neon.tech](https://neon.tech) (bisa login dengan akun GitHub).
+2. **Create project**. Isi:
+   - Project name: `live-polling`
+   - Postgres version: bebas (default terbaru)
+   - Region: **Asia Pacific (Singapore)** — samakan dengan region Render supaya latensinya rendah
+3. Setelah project jadi, Neon menampilkan **Connection string**. Pastikan pilihannya:
+   - Connection type: **Pooled connection**
+   - Format: **Parameters / URI** (yang berbentuk `postgresql://...`)
+4. Salin string-nya. Bentuknya kira-kira:
+
+   ```
+   postgresql://livepolling_owner:xxxxx@ep-nama-1234-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   ```
+
+   Simpan dulu — string ini berisi password, jangan di-commit ke repo.
+
+> **Kenapa "Pooled"?** Neon menyediakan dua host: langsung dan `-pooler` (PgBouncer).
+> Keduanya didukung aplikasi ini. Kalau host mengandung `-pooler`, aplikasi otomatis
+> mematikan cache prepared statement asyncpg — tanpa itu akan muncul galat
+> `prepared statement "__asyncpg_stmt_x__" already exists` saat beban naik.
+> Penanganannya ada di `app/config.py`, jadi tidak ada yang perlu kamu atur manual.
+
+### Langkah 2 — Push kode ke GitHub
+
+Repo lokal sudah diinisialisasi dan di-commit. Buat repo kosong di GitHub
+(**tanpa** README/gitignore), lalu:
+
+```bash
+git remote add origin https://github.com/USERNAME/live-polling.git
+git push -u origin main
+```
+
+Ganti `USERNAME` dan nama repo sesuai punyamu.
+
+### Langkah 3 — Deploy di Render
+
+1. Daftar/login di [render.com](https://render.com), sambungkan akun GitHub.
+2. **New → Blueprint**, pilih repo `live-polling`.
+3. Render membaca `render.yaml` dan menampilkan satu web service bernama
+   `live-polling`, lalu meminta nilai untuk **`DATABASE_URL`**.
+4. Tempel connection string Neon dari Langkah 1 ke situ.
+5. **Apply**. Build berjalan ±3–5 menit.
 
 Tabel dibuat otomatis saat aplikasi pertama kali start — tidak perlu migrasi manual.
 
-### Cara manual
+Kalau lebih suka tanpa Blueprint: **New → Web Service**, pilih repo, lalu isi
+Build Command `pip install -r requirements.txt`, Start Command
+`uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`,
+Health Check Path `/healthz`, dan tambahkan env var `DATABASE_URL` serta
+`PYTHON_VERSION=3.13.1`.
 
-1. **New → PostgreSQL**, plan Free. Salin **Internal Database URL**.
-2. **New → Web Service**, arahkan ke repo.
-   - Runtime: `Python 3`
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
-   - Health Check Path: `/healthz`
-3. Environment → tambah:
-   - `DATABASE_URL` = Internal Database URL dari langkah 1
-   - `PYTHON_VERSION` = `3.13.1`
-4. Deploy.
+### Langkah 4 — Uji sebelum dipakai acara
 
-### ⚠️ Yang wajib diperhatikan di Render
+Setelah deploy selesai, jalankan uji end-to-end langsung ke server sungguhan:
 
-**Harus satu worker.** Daftar koneksi WebSocket dan agregasi jawaban hidup di memory instance.
-Kalau `--workers` dinaikkan, partisipan yang mendarat di worker berbeda tidak akan melihat soal
-yang sama. Untuk skala lebih besar dari satu instance, perlu Redis pub/sub — belum ada di versi ini.
+```bash
+.venv/Scripts/python.exe tools/uji_alur.py https://live-polling-xxxx.onrender.com
+```
 
-**Free tier tidur setelah ±15 menit tanpa traffic**, dan bangun lagi butuh ±50 detik. Dua cara
-mengatasi:
+Ini menguji ketiga tipe pertanyaan, moderasi, keunikan nickname, timer server,
+skor kecepatan, reconnect, export Excel, plus 150 partisipan menjawab bersamaan
+— semuanya terhadap Postgres Neon, bukan SQLite. **Jalankan ini sekali sebelum
+hari-H**; kalau semua lulus, jalur Postgres sudah terbukti.
 
-- *Cara paling aman:* buka halaman `/admin` **5–10 menit sebelum acara** supaya instance sudah
-  bangun sebelum audiens masuk.
-- *Keep-alive otomatis:* daftarkan `https://<nama-app>.onrender.com/healthz` di layanan uptime
-  monitor gratis (UptimeRobot, Better Stack, cron-job.org) dengan interval 10 menit.
+Lalu isi event contoh:
 
-**Postgres free tier Render punya masa berlaku terbatas** (dihapus setelah periode gratis habis).
-Export hasil sesi ke Excel setelah acara — jangan andalkan database sebagai arsip jangka panjang.
+```bash
+.venv/Scripts/python.exe tools/contoh_event.py https://live-polling-xxxx.onrender.com
+```
 
-**Region.** `render.yaml` memakai `singapore`. Ganti kalau audiens kamu di wilayah lain.
+### Yang wajib diperhatikan
+
+**Harus satu worker.** Daftar koneksi WebSocket dan agregasi jawaban hidup di
+memory instance. Kalau `--workers` dinaikkan, partisipan yang mendarat di worker
+berbeda tidak akan melihat soal yang sama. Untuk skala lebih dari satu instance
+perlu Redis pub/sub — belum ada di versi ini.
+
+**Render free tier tidur setelah ±15 menit tanpa traffic**, bangun lagi ±50 detik.
+**Neon free tier juga scale-to-zero** setelah beberapa menit idle, tapi bangunnya
+cepat (di bawah 1 detik) dan `pool_pre_ping` sudah menangani koneksi yang terputus.
+Dua cara mengatasi tidurnya Render:
+
+- *Paling aman:* buka `/admin` **5–10 menit sebelum acara**.
+- *Keep-alive otomatis:* daftarkan `https://<app>.onrender.com/healthz` di uptime
+  monitor gratis (UptimeRobot, Better Stack, cron-job.org), interval 10 menit.
+
+**Batas free tier Neon** adalah 0,5 GB storage dan kuota compute bulanan. Untuk
+polling teks segini, ribuan sesi pun masih jauh di bawah batas.
+
+**Jangan commit connection string.** `.env` sudah masuk `.gitignore`; di Render
+simpan sebagai environment variable, bukan di dalam kode.
+
+**Ganti password Neon** lewat dashboard Neon (Roles → Reset password) kalau
+string-nya pernah bocor, lalu perbarui `DATABASE_URL` di Render.
 
 ### Deploy ke platform lain
 
-`Procfile` sudah tersedia, jadi Railway/Fly.io/Heroku juga bisa. Syaratnya sama: satu proses,
-satu worker, dan `DATABASE_URL` mengarah ke Postgres. URL bergaya `postgres://...?sslmode=require`
-otomatis dirapikan jadi bentuk `asyncpg` oleh `app/config.py`.
-
----
+`Procfile` sudah tersedia, jadi Railway/Fly.io/Heroku juga bisa. Syaratnya sama:
+satu proses, satu worker, dan `DATABASE_URL` mengarah ke Postgres. URL bergaya
+`postgres://...?sslmode=require` otomatis dirapikan jadi bentuk `asyncpg` oleh
+`app/config.py`.
 
 ## Alur pakai saat acara
 
@@ -204,7 +262,7 @@ Semua opsional — salin `.env.example` jadi `.env` kalau mau mengubah.
 
 | Variabel | Default | Fungsi |
 |---|---|---|
-| `DATABASE_URL` | kosong → SQLite lokal | Koneksi Postgres |
+| `DATABASE_URL` | kosong → SQLite lokal | Koneksi Postgres. Skema `postgres://`/`postgresql://` otomatis diubah ke `asyncpg`, `sslmode`/`channel_binding` dibuang dan diganti TLS, dan host `-pooler` (PgBouncer Neon) otomatis mematikan cache prepared statement |
 | `INTERVAL_BROADCAST` | `0.5` | Jeda throttle broadcast hasil ke presenter (detik) |
 | `TOLERANSI_TELAT_MS` | `300` | Toleransi jaringan untuk jawaban yang masuk mepet deadline |
 | `POIN_MAKSIMAL` | `1000` | Poin maksimum satu soal quiz |
@@ -231,7 +289,15 @@ kecepatan, reconnect, export Excel, plus simulasi **150 partisipan menjawab bers
 memastikan broadcast benar-benar ter-throttle. Ganti angka di `uji_beban(150)` untuk menguji
 beban lebih besar.
 
-Uji ini sengaja dibuat sebagai skrip mandiri (bukan pytest) supaya bisa dijalankan langsung
+Cek kompatibilitas Postgres (tanpa perlu server Postgres berjalan) — mengompilasi DDL,
+indeks parsial, dan statement upsert ke dialek `postgresql+asyncpg`, serta menguji
+normalisasi connection string Neon/Render:
+
+```bash
+.venv/Scripts/python.exe tools/cek_postgres.py
+```
+
+Uji alur sengaja dibuat sebagai skrip mandiri (bukan pytest) supaya bisa dijalankan langsung
 terhadap URL Render sesungguhnya sebelum acara:
 
 ```bash
@@ -265,6 +331,8 @@ templates/              Jinja2
 static/css/app.css      design system
 static/js/              common.js (soket, animasi), kelola.js, present.js, play.js
 tools/uji_alur.py       uji end-to-end + uji beban
+tools/cek_postgres.py   cek kompatibilitas Postgres tanpa server
+tools/contoh_event.py   pembuat dua event contoh
 ```
 
 ---
