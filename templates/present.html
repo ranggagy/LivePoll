@@ -42,23 +42,15 @@
           </div>
         </div>
       </div>
-
-      <div class="kartu {{ '' if mode == 'quiz' else 'sembunyi' }}" id="kartu-papan">
-        <div class="kartu-kepala">
-          <div class="kartu-judul">Leaderboard</div>
-          <span class="chip chip-aksen">LIVE</span>
-        </div>
-        <div class="kartu-isi" id="papan-isi">
-          <div class="kosong">Belum ada skor</div>
-        </div>
-      </div>
     </div>
   </div>
 
   <div class="baris mt-24" id="kontrol">
     <button class="btn btn-gelap" id="btn-tutup" disabled>Tutup Soal Sekarang</button>
     <button class="btn btn-garis" id="btn-berikutnya">Soal Berikutnya →</button>
-    <a class="btn btn-garis" href="/api/admin/sesi/{{ kode }}/export.xlsx">Export Excel</a>
+    {% if mode == "quiz" %}
+    <button class="btn btn-garis" id="btn-papan" disabled>Lihat Leaderboard →</button>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

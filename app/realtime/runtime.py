@@ -36,6 +36,35 @@ from .hub import PERAN_PARTISIPAN, PERAN_PRESENTER, hub
 
 log = logging.getLogger("livepoll.runtime")
 
+TOTAL_BARIS_TABEL = 7  # + 3 podium = maksimal 10 nama tampil di layar sesi selesai
+
+
+def bangun_podium(urut: list[dict], participant_id: int | None = None, total_tabel: int = TOTAL_BARIS_TABEL) -> dict:
+    """Podium peringkat 1-3 + tabel ringkas di bawahnya, maksimal 10 nama total.
+
+    `urut` sudah terurut dari peringkat 1. Kalau `participant_id` berada di
+    luar jendela default (peringkat 4 s.d. 3+total_tabel), tabel digeser
+    supaya berakhir 2 peringkat di bawah dia — jadi peserta mana pun tetap
+    melihat posisinya sendiri, bukan cuma top-10 generik yang sama untuk semua.
+    """
+    total = len(urut)
+    podium = [{**urut[i], "peringkat": i + 1} for i in range(min(3, total))]
+    peringkat_saya = next((i + 1 for i, b in enumerate(urut) if b["participant_id"] == participant_id), None)
+
+    akhir = min(total, 3 + total_tabel)
+    if peringkat_saya is not None and peringkat_saya > akhir:
+        akhir = min(total, peringkat_saya + 2)
+    awal = max(4, akhir - total_tabel + 1)
+
+    tabel = [{**urut[i], "peringkat": i + 1} for i in range(awal - 1, akhir)] if akhir >= awal else []
+
+    return {
+        "podium": podium,
+        "tabel": tabel,
+        "total_partisipan": total,
+        "peringkat_saya": peringkat_saya,
+    }
+
 
 def hitung_poin(benar: bool, waktu_ms: int, durasi_detik: int, poin_maksimal: int) -> int:
     """Skor gaya Kahoot: makin cepat menjawab benar, makin besar poinnya."""
@@ -320,20 +349,54 @@ class RuntimeSesi:
             return
         await hub.siarkan(self.kode, {"tipe": "moderasi", **self.aktif.payload_moderasi()}, peran=PERAN_PRESENTER)
 
+    def leaderboard_terurut(self) -> list[tuple[int, int]]:
+        return sorted(self.poin_total.items(), key=lambda x: (-x[1], self.nama.get(x[0], "")))
+
     def payload_leaderboard(self, batas: int = 12) -> dict:
-        urut = sorted(self.poin_total.items(), key=lambda x: (-x[1], self.nama.get(x[0], "")))
+        urut = self.leaderboard_terurut()
         baris = [
             {"participant_id": pid, "nickname": self.nama.get(pid) or "Anonim", "poin": poin, "peringkat": i + 1}
             for i, (pid, poin) in enumerate(urut[:batas])
         ]
         return {"baris": baris, "total_partisipan": len(self.poin_total)}
 
+    def payload_podium(self, participant_id: int | None = None) -> dict:
+        urut = [
+            {"participant_id": pid, "nickname": self.nama.get(pid) or "Anonim", "poin": poin}
+            for pid, poin in self.leaderboard_terurut()
+        ]
+        return bangun_podium(urut, participant_id)
+
+    def payload_peserta(self) -> list[dict]:
+        """Daftar peserta yang sudah gabung, urutan waktu join — dipakai bubble lobi presenter."""
+        return [{"participant_id": pid, "nickname": nama} for pid, nama in self.nama.items()]
+
     def peringkat_partisipan(self, participant_id: int) -> int | None:
-        urut = sorted(self.poin_total.items(), key=lambda x: -x[1])
+        urut = self.leaderboard_terurut()
         for i, (pid, _) in enumerate(urut):
             if pid == participant_id:
                 return i + 1
         return None
+
+    def sekitar_partisipan(self, participant_id: int) -> dict | None:
+        """Baris leaderboard di sekitar satu peserta: satu di atas dan satu di bawah."""
+        urut = self.leaderboard_terurut()
+        idx = next((i for i, (pid, _) in enumerate(urut) if pid == participant_id), None)
+        if idx is None:
+            return None
+
+        def _baris(i: int) -> dict | None:
+            if i < 0 or i >= len(urut):
+                return None
+            pid, poin = urut[i]
+            return {"participant_id": pid, "nickname": self.nama.get(pid) or "Anonim", "poin": poin, "peringkat": i + 1}
+
+        return {
+            "atas": _baris(idx - 1),
+            "saya": _baris(idx),
+            "bawah": _baris(idx + 1),
+            "total_partisipan": len(urut),
+        }
 
     def payload_sesi(self) -> dict:
         return {
@@ -532,6 +595,7 @@ class RuntimeSesi:
                 "poin": 0,
                 "total_poin": self.poin_total.get(participant_id, 0),
                 "peringkat": self.peringkat_partisipan(participant_id),
+                "sekitar": self.sekitar_partisipan(participant_id),
             }
         return {
             "menjawab": True,
@@ -540,6 +604,7 @@ class RuntimeSesi:
             "option_id": data.get("option_id"),
             "total_poin": self.poin_total.get(participant_id, 0),
             "peringkat": self.peringkat_partisipan(participant_id),
+            "sekitar": self.sekitar_partisipan(participant_id),
         }
 
     async def moderasi(self, participant_id: int, aksi: str) -> bool:
@@ -586,10 +651,23 @@ class RuntimeSesi:
         if self.aktif is not None and not self.aktif.ditutup:
             await self.tutup(alasan="sesi_berakhir")
         self.status = STATUS_SESI_SELESAI
+
+        if self.mode != MODE_QUIZ:
+            await hub.siarkan(self.kode, {"tipe": "sesi_selesai", "leaderboard": None})
+            return
+
+        # Presenter (layar besar) melihat podium generik top-10.
         await hub.siarkan(
-            self.kode,
-            {"tipe": "sesi_selesai", "leaderboard": self.payload_leaderboard(50) if self.mode == MODE_QUIZ else None},
+            self.kode, {"tipe": "sesi_selesai", "leaderboard": self.payload_podium()}, peran=PERAN_PRESENTER
         )
+        # Tiap partisipan melihat podium yang sama, tapi tabelnya digeser
+        # supaya peringkatnya sendiri selalu ikut tampil.
+        for koneksi in hub.koneksi_sesi(self.kode):
+            if koneksi.peran != PERAN_PARTISIPAN or koneksi.participant_id is None:
+                continue
+            await koneksi.kirim(
+                {"tipe": "sesi_selesai", "leaderboard": self.payload_podium(koneksi.participant_id)}
+            )
 
     # -- operasi partisipan ------------------------------------------------
 
@@ -706,6 +784,8 @@ class RuntimeSesi:
             "hasil": self.aktif.payload_hasil() if self.aktif else None,
             "leaderboard": self.payload_leaderboard() if self.mode == MODE_QUIZ else None,
         }
+        if self.mode == MODE_QUIZ:
+            muatan["peserta"] = self.payload_peserta()
         if self.aktif is not None and self.aktif.tipe == TIPE_WORD_CLOUD:
             muatan["moderasi"] = self.aktif.payload_moderasi()
         return muatan

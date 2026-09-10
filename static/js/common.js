@@ -4,6 +4,11 @@
 export const $ = (sel, akar = document) => akar.querySelector(sel);
 export const $$ = (sel, akar = document) => Array.from(akar.querySelectorAll(sel));
 
+export const escapeHtml = (t) =>
+  String(t ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
 export const gerakDikurangi = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -369,6 +374,54 @@ export class KlienSoket {
     this.indikator.sembunyikan();
     if (this.ws) this.ws.close();
   }
+}
+
+/* ----------------------------------------------------------- Podium ----- */
+
+const MEDALI_PODIUM = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+/**
+ * Podium 1-2-3 (urutan tampil: 2, 1, 3) + tabel ringkas di bawahnya, maksimal
+ * 10 nama total. `data` adalah hasil `bangun_podium` dari backend: `{podium,
+ * tabel}`, sudah digeser server-side supaya peringkat `milikSaya` (kalau ada)
+ * selalu ikut tampil beserta 2 peringkat di bawahnya. `milikSaya` dipakai
+ * untuk menyorot baris/kolom milik peserta yang sedang melihat layar ini.
+ */
+export function bangunPodiumHtml(data, milikSaya = null) {
+  const { podium, tabel } = data;
+  const disaya = (b) => milikSaya != null && b.participant_id === milikSaya;
+
+  const kolom = [podium[1], podium[0], podium[2]]
+    .map((b) => {
+      if (!b) return '<div class="podium-kolom podium-kosong"></div>';
+      return `
+        <div class="podium-kolom podium-${b.peringkat}${disaya(b) ? " saya" : ""}">
+          <div class="podium-medali">${MEDALI_PODIUM[b.peringkat] || b.peringkat}</div>
+          <div class="podium-nama">${escapeHtml(b.nickname)}</div>
+          <div class="podium-poin">${b.poin} pts</div>
+          <div class="podium-balok"><span>${b.peringkat}</span></div>
+        </div>`;
+    })
+    .join("");
+
+  let tabelHtml = "";
+  if (tabel && tabel.length) {
+    const adaLompatan = tabel[0].peringkat > 4;
+    tabelHtml = `<div class="papan-lanjutan">
+      ${adaLompatan ? '<div class="papan-lompat">⋯</div>' : ""}
+      ${tabel
+        .map(
+          (b) => `
+        <div class="papan-baris${disaya(b) ? " saya" : ""}" data-kunci="${b.participant_id}">
+          <span class="papan-peringkat">${b.peringkat}</span>
+          <span class="papan-nama">${escapeHtml(b.nickname)}</span>
+          <span class="papan-poin">${b.poin}</span>
+        </div>`
+        )
+        .join("")}
+    </div>`;
+  }
+  return `<div class="podium">${kolom}</div>${tabelHtml}`;
 }
 
 /* ------------------------------------------------------------- Lain-lain */

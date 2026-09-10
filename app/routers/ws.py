@@ -10,12 +10,36 @@ from ..database import BuatSesiDB
 from ..models import MODE_QUIZ, Partisipan, Sesi
 from ..realtime.hub import PERAN_PARTISIPAN, PERAN_PRESENTER, Koneksi, hub
 from ..realtime.manajer import manajer
+from ..realtime.runtime import bangun_podium
 
 log = logging.getLogger("livepoll.ws")
 router = APIRouter()
 
 # Tutup koneksi yang diam terlalu lama; client mengirim ping tiap 25 detik.
 BATAS_DIAM_DETIK = 90
+
+
+async def _urutan_peserta_db(db, session_id: int) -> list[dict]:
+    peserta = (
+        (
+            await db.execute(
+                select(Partisipan)
+                .where(Partisipan.session_id == session_id)
+                .order_by(Partisipan.total_poin.desc(), Partisipan.nickname)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [{"participant_id": p.id, "nickname": p.nickname or "Anonim", "poin": p.total_poin or 0} for p in peserta]
+
+
+async def _cari_participant_id(token: str) -> int | None:
+    """Token unik lintas sesi, jadi cukup dicari tanpa perlu tahu kode sesinya."""
+    if not token:
+        return None
+    async with BuatSesiDB() as db:
+        return (await db.execute(select(Partisipan.id).where(Partisipan.token == token))).scalar_one_or_none()
 
 
 async def _ringkasan_selesai(kode: str) -> dict | None:
@@ -32,37 +56,27 @@ async def _ringkasan_selesai(kode: str) -> dict | None:
         ).scalar_one_or_none()
         if sesi is None:
             return None
-        papan = None
+        podium = None
         if sesi.mode == MODE_QUIZ:
-            peserta = (
-                (
-                    await db.execute(
-                        select(Partisipan)
-                        .where(Partisipan.session_id == sesi.id)
-                        .order_by(Partisipan.total_poin.desc())
-                        .limit(50)
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            papan = {
-                "baris": [
-                    {
-                        "participant_id": p.id,
-                        "nickname": p.nickname or "Anonim",
-                        "poin": p.total_poin or 0,
-                        "peringkat": i + 1,
-                    }
-                    for i, p in enumerate(peserta)
-                ],
-                "total_partisipan": len(peserta),
-            }
+            podium = bangun_podium(await _urutan_peserta_db(db, sesi.id))
     return {
         "tipe": "sesi_selesai",
         "sesi": {"kode": sesi.kode_sesi, "judul": sesi.judul, "mode": sesi.mode},
-        "leaderboard": papan,
+        "leaderboard": podium,
     }
+
+
+async def _ringkasan_selesai_partisipan(participant_id: int) -> dict:
+    """Sama seperti `_ringkasan_selesai`, tapi tabelnya digeser ke peringkat partisipan ini."""
+    async with BuatSesiDB() as db:
+        peserta = await db.get(Partisipan, participant_id)
+        if peserta is None:
+            return {"tipe": "sesi_selesai", "pesan": "Sesi telah berakhir"}
+        sesi = await db.get(Sesi, peserta.session_id)
+        podium = None
+        if sesi is not None and sesi.mode == MODE_QUIZ:
+            podium = bangun_podium(await _urutan_peserta_db(db, sesi.id), participant_id)
+    return {"tipe": "sesi_selesai", "pesan": "Sesi telah berakhir", "leaderboard": podium}
 
 
 async def _kabari_jumlah_online(kode: str) -> None:
@@ -109,7 +123,13 @@ async def ws_partisipan(websocket: WebSocket, kode: str, token: str = ""):
     kode = (kode or "").strip().upper()
     runtime = await manajer.dapatkan(kode)
     if runtime is None:
-        await websocket.send_json({"tipe": "sesi_selesai", "pesan": "Sesi telah berakhir"})
+        participant_id = await _cari_participant_id(token)
+        ringkasan = (
+            await _ringkasan_selesai_partisipan(participant_id)
+            if participant_id is not None
+            else {"tipe": "sesi_selesai", "pesan": "Sesi telah berakhir"}
+        )
+        await websocket.send_json(ringkasan)
         await websocket.close()
         return
 

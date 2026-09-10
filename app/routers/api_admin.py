@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -176,6 +176,37 @@ async def hapus_sesi(kode: str, db: AsyncSession = Depends(dapatkan_db)):
     await manajer.buang(sesi.kode_sesi)
     await db.delete(sesi)
     await db.commit()
+    return {"ok": True}
+
+
+@router.post("/sesi/{kode}/reset")
+async def reset_sesi(kode: str, db: AsyncSession = Depends(dapatkan_db)):
+    """Kembalikan sesi ke kondisi awal: hapus jawaban & partisipan, soal balik ke draft.
+
+    Pertanyaan yang sudah dibuat tetap dipertahankan supaya sesi bisa langsung
+    dipakai ulang tanpa mengetik ulang semuanya.
+    """
+    sesi = await ambil_sesi(db, kode)
+    await manajer.buang(sesi.kode_sesi)
+
+    id_pertanyaan = [q.id for q in sesi.daftar_pertanyaan]
+    if id_pertanyaan:
+        await db.execute(delete(Jawaban).where(Jawaban.question_id.in_(id_pertanyaan)))
+        await db.execute(
+            update(Pertanyaan)
+            .where(Pertanyaan.id.in_(id_pertanyaan))
+            .values(status=STATUS_Q_DRAFT, dibuka_at=None, ditutup_at=None)
+        )
+    await db.execute(delete(Partisipan).where(Partisipan.session_id == sesi.id))
+
+    sesi.status = STATUS_SESI_AKTIF
+    sesi.pertanyaan_aktif_id = None
+    sesi.ended_at = None
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "Kode sesi ini sedang dipakai sesi aktif lain — akhiri sesi itu dulu")
     return {"ok": True}
 
 

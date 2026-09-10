@@ -10,6 +10,8 @@ import {
   rekamPosisi,
   mainkanFlip,
   gantiTampilan,
+  bangunPodiumHtml,
+  escapeHtml,
   CincinTimer,
   KlienSoket,
   KELAS_OPSI,
@@ -25,6 +27,15 @@ const timer = new CincinTimer($("#timer"));
 
 let idPertanyaanTampil = null;
 let tipeTampil = null;
+
+// Peserta yang sudah gabung (dipakai bubble lobi, urutan waktu join).
+const pesertaGabung = new Map();
+
+// Leaderboard: hasil ditahan sampai presenter memilih untuk melihatnya, dan
+// baru boleh muncul lagi setelah soal berikutnya benar-benar ditutup.
+let papanTerakhir = null;
+let pertanyaanTerakhir = null;
+let modeTampilan = "hasil"; // "hasil" | "leaderboard"
 
 // Hasil sengaja ditahan dulu supaya layar tidak menampilkan grafik dari satu
 // dua suara pertama — itu bikin audiens ikut-ikutan dan hasilnya bias.
@@ -46,11 +57,6 @@ function catatOnline(jumlah) {
   if (jumlah > puncakOnline) puncakOnline = jumlah;
 }
 
-const escapeHtml = (t) =>
-  String(t ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
-
 /* ------------------------------------------------------------- Lobi ----- */
 
 function gambarLobi() {
@@ -68,23 +74,70 @@ function gambarLobi() {
           <div class="muted mt-8" style="overflow-wrap:anywhere">${escapeHtml(TAUTAN)}</div>
         </div>
       </div>
-      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Soal Berikutnya” untuk memulai.</p>`;
+      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Soal Berikutnya” untuk memulai.</p>
+      ${KUIS ? '<div class="peserta-lobi" id="daftar-peserta-lobi"></div>' : ""}`;
     return el;
+  }).then(() => {
+    if (!KUIS) return;
+    const wadah = $("#daftar-peserta-lobi");
+    if (!wadah) return;
+    pesertaGabung.forEach((nickname, pid) => tambahBubblePeserta(wadah, pid, nickname));
   });
 }
 
-/** Layar penutup: sesi sudah berakhir, hasil akhir tetap bisa dilihat. */
-function gambarSesiSelesai(sesi) {
+/** Tambah satu bubble nama ke wadah lobi, kalau belum ada. */
+function tambahBubblePeserta(wadah, pid, nickname) {
+  if (wadah.querySelector(`[data-pid="${pid}"]`)) return;
+  const el = document.createElement("span");
+  el.className = "chip peserta-chip";
+  el.dataset.pid = String(pid);
+  el.textContent = nickname;
+  wadah.appendChild(el);
+  el.animate(
+    [{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }],
+    { duration: 320, easing: "cubic-bezier(0.34,1.56,0.64,1)", fill: "backwards" }
+  );
+}
+
+/** Peserta baru gabung: simpan, dan tampilkan bubble kalau presenter sedang di layar lobi. */
+function tambahPesertaLobi(pid, nickname) {
+  if (pesertaGabung.has(pid)) return;
+  pesertaGabung.set(pid, nickname);
+  const wadah = $("#daftar-peserta-lobi");
+  if (wadah) tambahBubblePeserta(wadah, pid, nickname);
+}
+
+/** Layar penutup: sesi sudah berakhir — podium untuk quiz, ucapan terima kasih untuk survey. */
+function gambarSesiSelesai(sesi, leaderboard) {
+  idPertanyaanTampil = null;
+  tipeTampil = null;
   timer.sembunyikan();
+  $("#btn-tutup").disabled = true;
+  $("#btn-berikutnya").disabled = true;
+  const tombolPapan = $("#btn-papan");
+  if (tombolPapan) tombolPapan.disabled = true;
+
+  const adaPodium = KUIS && leaderboard && leaderboard.podium && leaderboard.podium.length;
   gantiTampilan(isi, () => {
     const el = document.createElement("div");
-    el.className = "tengah";
-    el.innerHTML = `
-      <div class="lencana-hasil">✓</div>
-      <h2 style="font-size:22px">Sesi telah berakhir</h2>
-      <p class="muted mt-8">${escapeHtml((sesi && sesi.judul) || "")}</p>
-      <p class="muted mt-16">Hasil akhir masih bisa diunduh lewat tombol Export Excel.</p>`;
+    if (adaPodium) {
+      el.innerHTML = `
+        <div class="tengah mb-24">
+          <h2 style="font-size:22px">Sesi telah berakhir</h2>
+          <p class="muted mt-8">${escapeHtml((sesi && sesi.judul) || "")}</p>
+        </div>
+        <div id="podium-wadah"></div>`;
+    } else {
+      el.className = "tengah";
+      el.innerHTML = `
+        <div class="lencana-hasil">✓</div>
+        <h2 style="font-size:22px">Sesi telah berakhir</h2>
+        <p class="muted mt-8">${escapeHtml((sesi && sesi.judul) || "")}</p>
+        <p class="muted mt-16">Terima kasih untuk survey!</p>`;
+    }
     return el;
+  }).then(() => {
+    if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard);
   });
 }
 
@@ -312,11 +365,26 @@ function perbaruiKosong(wadah) {
 
 /* ----------------------------------------------------- Leaderboard ------ */
 
-function gambarPapan(papan) {
-  if (!papan || !papan.baris) return;
-  $("#kartu-papan").classList.remove("sembunyi");
-  rapikanKolom();
-  const wadah = $("#papan-isi");
+const MEDALI = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+/** Leaderboard sebagai panel utama penuh (bukan sidebar) — dipanggil lewat tombol "Lihat Leaderboard". */
+function gambarPapanUtama(papan) {
+  idPertanyaanTampil = null;
+  tipeTampil = null;
+  timer.sembunyikan();
+  gantiTampilan(isi, () => {
+    const el = document.createElement("div");
+    el.innerHTML = `
+      <div class="chip chip-aksen mb-16">Leaderboard</div>
+      <div id="papan-utama-isi"></div>`;
+    return el;
+  }).then(() => isiPapanUtama(papan));
+}
+
+/** Isi ulang daftar leaderboard di panel utama, dengan animasi FLIP untuk baris yang pindah posisi. */
+function isiPapanUtama(papan) {
+  const wadah = $("#papan-utama-isi");
+  if (!wadah || !papan) return;
   if (!papan.baris.length) {
     wadah.innerHTML = '<div class="kosong">Belum ada skor</div>';
     return;
@@ -330,14 +398,14 @@ function gambarPapan(papan) {
     let el = wadah.querySelector(`[data-kunci="${b.participant_id}"]`);
     if (!el) {
       el = document.createElement("div");
-      el.className = "papan-baris";
+      el.className = "papan-baris besar";
       el.dataset.kunci = String(b.participant_id);
       el.innerHTML = `<span class="papan-peringkat"></span><span class="papan-nama"></span><span class="papan-poin"></span>`;
       el.style.opacity = "0";
       requestAnimationFrame(() => (el.style.opacity = "1"));
     }
     el.classList.toggle("juara", b.peringkat === 1);
-    el.querySelector(".papan-peringkat").textContent = b.peringkat;
+    el.querySelector(".papan-peringkat").textContent = MEDALI[b.peringkat] || b.peringkat;
     el.querySelector(".papan-nama").textContent = b.nickname;
     animasiAngka(el.querySelector(".papan-poin"), b.poin);
     urut.push(el);
@@ -347,6 +415,15 @@ function gambarPapan(papan) {
     if (!urut.includes(el)) el.remove();
   });
   mainkanFlip(urut, sebelum);
+}
+
+/** Simpan leaderboard terbaru dan aktifkan/nonaktifkan tombol sesuai ketersediaan data. */
+function catatPapan(papan) {
+  papanTerakhir = papan || null;
+  const tombol = $("#btn-papan");
+  if (!tombol) return;
+  tombol.disabled = !papanTerakhir;
+  if (modeTampilan === "leaderboard") isiPapanUtama(papanTerakhir);
 }
 
 /* ---------------------------------------------------------- Terapkan ---- */
@@ -487,9 +564,20 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
     $("#btn-tutup").disabled = true;
     return;
   }
+  pertanyaanTerakhir = pertanyaan;
   // Soal yang dibuka ulang memulai pengumpulan dari nol, jadi gerbang hasil
-  // ikut ditutup lagi walau kerangka di layar tidak berubah.
-  if (baruDibuka) hasilTerbuka = false;
+  // ikut ditutup lagi walau kerangka di layar tidak berubah — leaderboard
+  // soal sebelumnya juga tidak relevan lagi sampai soal ini ditutup.
+  if (baruDibuka) {
+    hasilTerbuka = false;
+    modeTampilan = "hasil";
+    const tombolPapan = $("#btn-papan");
+    if (tombolPapan) {
+      tombolPapan.textContent = "Lihat Leaderboard →";
+      tombolPapan.disabled = true;
+    }
+  }
+  if (modeTampilan === "leaderboard") return; // presenter sedang melihat leaderboard, jangan timpa
   if (baruDibuka || pertanyaan.id !== idPertanyaanTampil || pertanyaan.tipe !== tipeTampil) {
     // Isi hasil tepat setelah kerangka terpasang, bukan setelah jeda tebakan.
     gambarKerangka(pertanyaan).then(() => {
@@ -519,13 +607,19 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
       case "pertanyaan_dibuka":
         if (pesan.tipe === "pertanyaan_dibuka") puncakOnline = 0;
         if (pesan.sesi) catatOnline(pesan.sesi.online ?? 0);
+        if (Array.isArray(pesan.peserta)) {
+          pesan.peserta.forEach((p) => pesertaGabung.set(p.participant_id, p.nickname));
+        }
         terapkanPertanyaan(
           pesan.pertanyaan,
           pesan.hasil,
           pesan.moderasi,
           pesan.tipe === "pertanyaan_dibuka"
         );
-        gambarPapan(pesan.leaderboard);
+        catatPapan(pesan.leaderboard);
+        break;
+      case "peserta_gabung":
+        tambahPesertaLobi(pesan.participant_id, pesan.nickname);
         break;
       case "hasil":
         catatOnline(pesan.online);
@@ -540,15 +634,13 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
       case "pertanyaan_ditutup":
         timer.sembunyikan();
         terapkanPertanyaan(pesan.pertanyaan, pesan.hasil, null);
-        gambarPapan(pesan.leaderboard);
+        catatPapan(pesan.leaderboard);
         toast(pesan.alasan === "timer" ? "Waktu habis — soal ditutup" : "Soal ditutup");
         break;
       case "sesi_selesai":
-        timer.sembunyikan();
-        // Kalau tidak ada soal yang sedang tampil (mis. halaman baru
-        // di-refresh setelah acara), tampilkan layar penutup.
-        if (idPertanyaanTampil === null) gambarSesiSelesai(pesan.sesi);
-        gambarPapan(pesan.leaderboard);
+        // Sesi benar-benar berakhir — selalu tampilkan layar penutup,
+        // menimpa apa pun yang sedang dilihat presenter saat itu.
+        gambarSesiSelesai(pesan.sesi, pesan.leaderboard);
         toast("Sesi telah berakhir");
         // Sesi sudah ditutup — berhenti mencoba menyambung ulang.
         soket.tutup();
@@ -605,6 +697,26 @@ $("#btn-reject-semua").addEventListener("click", async () => {
     toast(err.message, "galat");
   }
 });
+
+const btnPapan = $("#btn-papan");
+if (btnPapan) {
+  btnPapan.addEventListener("click", () => {
+    if (modeTampilan === "leaderboard") {
+      modeTampilan = "hasil";
+      btnPapan.textContent = "Lihat Leaderboard →";
+      if (pertanyaanTerakhir) {
+        gambarKerangka(pertanyaanTerakhir).then(() => {
+          terapkanHasil(hasilTerakhir);
+          if (pertanyaanTerakhir.tipe === "word_cloud") gambarModerasi({ antrian: [], jumlah: 0 });
+        });
+      }
+    } else {
+      modeTampilan = "leaderboard";
+      btnPapan.textContent = "← Kembali ke Hasil";
+      gambarPapanUtama(papanTerakhir);
+    }
+  });
+}
 
 $("#btn-layar-penuh").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();

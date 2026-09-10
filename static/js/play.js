@@ -8,6 +8,8 @@ import {
   bacaLokal,
   gantiTampilan,
   toast,
+  bangunPodiumHtml,
+  escapeHtml,
   CincinTimer,
   KlienSoket,
   KELAS_OPSI,
@@ -28,11 +30,6 @@ const timer = new CincinTimer($("#timer"));
 let kunciTampilan = null; // penanda tampilan yang sedang dirender
 let terkunci = false; // true setelah partisipan menjawab
 let idSoal = null;
-
-const escapeHtml = (t) =>
-  String(t ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
 
 /** Render satu tampilan; balikan Promise elemen baru, atau null bila tidak berubah. */
 function tampilkan(kunci, render) {
@@ -223,6 +220,7 @@ function tandaiTerkunci(jawabanSaya) {
 function gambarHasilKuis(pribadi, papan) {
   timer.sembunyikan();
   kunciTampilan = `hasil:${idSoal}`;
+  const adaSekitar = pribadi && pribadi.sekitar;
   const menunggu = gantiTampilan(panggung, () => {
     const el = document.createElement("div");
     el.className = "tengah";
@@ -242,7 +240,7 @@ function gambarHasilKuis(pribadi, papan) {
           ${pribadi && pribadi.peringkat ? `· Peringkat #${pribadi.peringkat}` : ""}
         </div>
       </div>
-      ${papan && papan.baris.length ? `<div class="mt-24" style="text-align:left" id="papan-mini"></div>` : ""}`;
+      ${adaSekitar ? `<div class="mt-24" style="text-align:left" id="papan-sekitar"></div>` : ""}`;
     return el;
   });
 
@@ -256,18 +254,28 @@ function gambarHasilKuis(pribadi, papan) {
       chip.classList.remove("sembunyi");
       chip.textContent = `${pribadi.total_poin} pts`;
     }
-    gambarPapanMini(papan, pribadi);
+    if (adaSekitar) gambarPapanSekitar(pribadi.sekitar);
   });
 }
 
-function gambarPapanMini(papan, pribadi) {
-  const wadah = $("#papan-mini");
-  if (!wadah || !papan) return;
-  wadah.innerHTML = `<div class="label mb-8">Leaderboard</div>`;
-  papan.baris.slice(0, 5).forEach((b, i) => {
+/** Panel "posisi kamu": satu peringkat di atas, kamu, satu peringkat di bawah. */
+function gambarPapanSekitar(sekitar) {
+  const wadah = $("#papan-sekitar");
+  if (!wadah || !sekitar) return;
+  wadah.innerHTML = `<div class="label mb-8">Posisimu</div>`;
+
+  if (!sekitar.atas) {
+    const puncak = document.createElement("div");
+    puncak.className = "muted tengah mb-8";
+    puncak.textContent = "🏆 Kamu peringkat teratas!";
+    wadah.appendChild(puncak);
+  }
+
+  const baris = [sekitar.atas, sekitar.saya, sekitar.bawah].filter(Boolean);
+  baris.forEach((b, i) => {
     const el = document.createElement("div");
     el.className = "papan-baris" + (b.peringkat === 1 ? " juara" : "");
-    if (tersimpan && b.participant_id === tersimpan.participant_id) el.classList.add("saya");
+    if (b === sekitar.saya) el.classList.add("saya");
     el.innerHTML = `<span class="papan-peringkat">${b.peringkat}</span>
       <span class="papan-nama">${escapeHtml(b.nickname)}</span>
       <span class="papan-poin">${b.poin}</span>`;
@@ -325,17 +333,29 @@ function gambarHasilSurvey(pertanyaan, hasil) {
 function gambarSesiSelesai(papan) {
   timer.sembunyikan();
   kunciTampilan = "selesai";
+  const adaPodium = MODE === "quiz" && papan && papan.podium && papan.podium.length;
   const menunggu = gantiTampilan(panggung, () => {
     const el = document.createElement("div");
-    el.className = "tengah";
-    el.innerHTML = `
-      <div class="lencana-hasil">✓</div>
-      <h2 style="font-size:20px">Sesi telah berakhir</h2>
-      <p class="muted mt-8">Terima kasih sudah berpartisipasi.</p>
-      ${papan && papan.baris.length ? '<div class="mt-24" style="text-align:left" id="papan-mini"></div>' : ""}`;
+    if (adaPodium) {
+      el.innerHTML = `
+        <div class="tengah mb-16">
+          <h2 style="font-size:20px">Sesi telah berakhir</h2>
+        </div>
+        <div id="podium-wadah"></div>`;
+    } else {
+      el.className = "tengah";
+      el.innerHTML = `
+        <div class="lencana-hasil">✓</div>
+        <h2 style="font-size:20px">Sesi telah berakhir</h2>
+        <p class="muted mt-8">Terima kasih untuk survey!</p>`;
+    }
     return el;
   });
-  menunggu.then(() => gambarPapanMini(papan, null));
+  menunggu.then(() => {
+    if (adaPodium) {
+      $("#podium-wadah").innerHTML = bangunPodiumHtml(papan, tersimpan ? tersimpan.participant_id : null);
+    }
+  });
 }
 
 /* ------------------------------------------------------------ Soket ----- */

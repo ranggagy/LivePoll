@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import dapatkan_db
 from ..models import MODE_QUIZ, STATUS_SESI_AKTIF, Partisipan, Sesi
+from ..realtime.hub import PERAN_PRESENTER, hub
 from ..realtime.manajer import manajer
 from ..schemas import GabungIn
 from ..utils import buat_token, normalisasi_nickname
@@ -103,6 +104,12 @@ async def gabung(kode: str, payload: GabungIn, db: AsyncSession = Depends(dapatk
     runtime = await manajer.dapatkan(sesi.kode_sesi)
     if runtime is not None:
         runtime.daftarkan_partisipan(peserta.id, peserta.nickname, 0)
+    if sesi.mode == MODE_QUIZ:
+        await hub.siarkan(
+            sesi.kode_sesi,
+            {"tipe": "peserta_gabung", "participant_id": peserta.id, "nickname": peserta.nickname},
+            peran=PERAN_PRESENTER,
+        )
     return _hasil_gabung(sesi, peserta, resume=False)
 
 

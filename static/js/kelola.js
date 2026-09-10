@@ -137,6 +137,33 @@ $("#btn-akhiri").addEventListener("click", async () => {
   }
 });
 
+$("#btn-reset").addEventListener("click", async () => {
+  if (
+    !confirm(
+      "Reset sesi ini ke awal? Semua jawaban, skor, dan partisipan yang sudah gabung akan dihapus — pertanyaan tetap ada dan sesi bisa dipakai ulang dari kode yang sama."
+    )
+  )
+    return;
+  try {
+    await api(`/api/admin/sesi/${KODE}/reset`, { method: "POST" });
+    toast("Sesi direset, siap dipakai ulang", "sukses");
+    setTimeout(() => location.reload(), 600);
+  } catch (err) {
+    toast(err.message, "galat");
+  }
+});
+
+$("#btn-hapus").addEventListener("click", async () => {
+  if (!confirm(`Hapus sesi "${sesi.judul}" secara permanen? Tindakan ini tidak bisa dibatalkan.`)) return;
+  try {
+    await api(`/api/admin/sesi/${KODE}`, { method: "DELETE" });
+    toast("Sesi dihapus", "sukses");
+    location.href = "/admin";
+  } catch (err) {
+    toast(err.message, "galat");
+  }
+});
+
 /* --------------------------------------------------------------- Form ---- */
 
 function barisOpsi(nilai = "", benar = false) {

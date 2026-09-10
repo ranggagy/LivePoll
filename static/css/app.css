@@ -814,6 +814,107 @@ textarea.input:focus {
   padding-inline: 10px;
 }
 
+/* Varian panel utama presenter (leaderboard full-screen, bukan sidebar). */
+.papan-baris.besar {
+  gap: 20px;
+  padding: 18px 4px;
+}
+.papan-baris.besar .papan-peringkat {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+.papan-baris.besar .papan-nama {
+  font-size: 19px;
+}
+.papan-baris.besar .papan-poin {
+  font-size: 19px;
+}
+
+/* --- Podium (layar sesi selesai, Quiz Mode) ------------------------------ */
+
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 28px;
+}
+.podium-kolom {
+  flex: 1;
+  max-width: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.podium-medali {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.podium-nama {
+  font-weight: 800;
+  font-size: 14px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.podium-poin {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.podium-balok {
+  width: 100%;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: var(--surface);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10px;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--muted);
+}
+.podium-1 .podium-balok {
+  height: 128px;
+  background: var(--accent);
+  color: var(--ink);
+}
+.podium-2 .podium-balok {
+  height: 92px;
+}
+.podium-3 .podium-balok {
+  height: 68px;
+}
+.podium-1 .podium-nama {
+  font-size: 16px;
+}
+.podium-kosong {
+  visibility: hidden;
+}
+.podium-kolom.saya .podium-nama {
+  color: var(--accent-deep);
+}
+.podium-kolom.saya .podium-balok {
+  box-shadow: inset 0 0 0 3px var(--accent-deep);
+}
+.papan-lanjutan {
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: left;
+}
+.papan-lompat {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  padding: 4px 0;
+}
+
 /* --- Timer --------------------------------------------------------------- */
 
 .cincin-timer {
@@ -1163,6 +1264,17 @@ textarea.input:focus {
   font-weight: 800;
   letter-spacing: 0.1em;
   line-height: 1;
+}
+.peserta-lobi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+.peserta-chip {
+  background: var(--accent-tint);
+  font-size: 13px;
+  padding: 7px 14px;
 }
 
 /* --- Bingkai HP (halaman partisipan) ------------------------------------- */

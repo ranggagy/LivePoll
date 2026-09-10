@@ -109,14 +109,17 @@ async def halaman_gabung(request: Request, kode: str, db: AsyncSession = Depends
 
 @router.get("/play/{kode}", response_class=HTMLResponse)
 async def halaman_main(request: Request, kode: str, db: AsyncSession = Depends(dapatkan_db)):
+    """Halaman ini sengaja tetap dirender meski sesi sudah berakhir (selama kodenya
+    pernah ada) — partisipan yang sudah punya token lewat play.js akan menerima
+    ringkasan/podium akhir lewat WebSocket, bukan cuma halaman "sesi berakhir" polos."""
     kode = (kode or "").strip().upper()
     sesi = await _cari_sesi(db, kode)
-    if sesi is None or sesi.status != STATUS_SESI_AKTIF:
+    if sesi is None:
         return templates.TemplateResponse(
             request,
             "berakhir.html",
             {"judul_halaman": "Sesi telah berakhir", "kode": kode},
-            status_code=410 if sesi is not None else 404,
+            status_code=404,
         )
     return templates.TemplateResponse(
         request,
