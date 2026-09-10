@@ -7,6 +7,9 @@ const KODE = document.querySelector("[data-kode]").dataset.kode;
 let sesi = null;
 let tipe = "mc";
 let sedangEdit = null;
+let gambarDataUri = null;
+
+const BATAS_UKURAN_GAMBAR = 2 * 1024 * 1024; // 2MB, disimpan sebagai base64 langsung di DB
 
 const escapeHtml = (t) =>
   String(t ?? "").replace(/[&<>"']/g, (c) =>
@@ -61,6 +64,7 @@ function gambarDaftar() {
     if (q.tipe === "mc") detail.push(`${q.opsi.length} opsi`);
     if (q.tipe === "rating") detail.push(`skala 1–${q.rating_maks}`);
     if (sesi.mode === "quiz") detail.push(`${q.durasi_detik} detik`);
+    if (q.gambar) detail.push("🖼️ ada gambar");
 
     el.innerHTML = `
       <div class="tumbuh">
@@ -232,6 +236,10 @@ function bukaForm(q = null) {
   $("#durasi").value = q ? q.durasi_detik : 20;
   setTipe(q ? q.tipe : sesi.mode === "quiz" ? "mc" : "mc");
 
+  gambarDataUri = (q && q.gambar) || null;
+  $("#input-gambar").value = "";
+  perbaruiPratinjauGambar();
+
   const wadah = $("#daftar-opsi");
   wadah.replaceChildren();
   const opsi = q && q.opsi.length ? q.opsi : [{ teks: "", is_benar: false }, { teks: "", is_benar: false }];
@@ -244,6 +252,49 @@ function bukaForm(q = null) {
 $("#btn-tambah").addEventListener("click", () => bukaForm(null));
 $("#btn-batal").addEventListener("click", () => $("#panel-form").classList.add("sembunyi"));
 
+/* ------------------------------------------------------------- Gambar --- */
+
+function perbaruiPratinjauGambar() {
+  const pratinjau = $("#pratinjau-gambar");
+  const btnHapus = $("#btn-hapus-gambar");
+  if (gambarDataUri) {
+    pratinjau.src = gambarDataUri;
+    pratinjau.classList.remove("sembunyi");
+    btnHapus.classList.remove("sembunyi");
+  } else {
+    pratinjau.classList.add("sembunyi");
+    pratinjau.src = "";
+    btnHapus.classList.add("sembunyi");
+  }
+}
+
+$("#btn-pilih-gambar").addEventListener("click", () => $("#input-gambar").click());
+
+$("#btn-hapus-gambar").addEventListener("click", () => {
+  gambarDataUri = null;
+  $("#input-gambar").value = "";
+  perbaruiPratinjauGambar();
+});
+
+$("#input-gambar").addEventListener("change", () => {
+  const berkas = $("#input-gambar").files[0];
+  if (!berkas) return;
+  if (!berkas.type.startsWith("image/")) {
+    toast("File harus berupa gambar", "galat");
+    return;
+  }
+  if (berkas.size > BATAS_UKURAN_GAMBAR) {
+    toast("Ukuran gambar maksimal 2MB", "galat");
+    return;
+  }
+  const pembaca = new FileReader();
+  pembaca.onload = () => {
+    gambarDataUri = pembaca.result;
+    perbaruiPratinjauGambar();
+  };
+  pembaca.readAsDataURL(berkas);
+});
+
 $("#form-pertanyaan").addEventListener("submit", async (e) => {
   e.preventDefault();
   const tombol = $("#btn-simpan");
@@ -252,6 +303,7 @@ $("#form-pertanyaan").addEventListener("submit", async (e) => {
     teks: $("#teks").value.trim(),
     durasi_detik: Number($("#durasi").value) || 20,
     rating_maks: Number($("#rating-maks").value) || 5,
+    gambar: gambarDataUri,
     opsi: [],
   };
   if (tipe === "mc") {

@@ -11,6 +11,7 @@ import {
   mainkanFlip,
   gantiTampilan,
   bangunPodiumHtml,
+  mainkanKembangApi,
   escapeHtml,
   CincinTimer,
   KlienSoket,
@@ -171,6 +172,7 @@ function gambarSesiSelesai(sesi, leaderboard) {
   }).then(() => {
     if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard);
   });
+  if (adaPodium) mainkanKembangApi();
 }
 
 /* ------------------------------------------------- Kerangka pertanyaan -- */
@@ -183,7 +185,10 @@ function gambarKerangka(pertanyaan) {
     const el = document.createElement("div");
     el.innerHTML = `
       <div class="chip mb-16" id="chip-nomor">Pertanyaan ${pertanyaan.urutan_ke} dari ${pertanyaan.total_soal}</div>
-      <div class="pertanyaan-besar">${escapeHtml(pertanyaan.teks)}</div>
+      <div class="pertanyaan-baris mb-8">
+        ${pertanyaan.gambar ? `<img class="pertanyaan-gambar" src="${pertanyaan.gambar}" alt="">` : ""}
+        <div class="tumbuh pertanyaan-besar">${escapeHtml(pertanyaan.teks)}</div>
+      </div>
       <div class="muted mb-24" id="ringkas-jawaban">0 partisipan telah menjawab</div>
       <div id="wadah-hasil"></div>`;
     return el;

@@ -54,6 +54,16 @@
           <input class="input" id="teks" maxlength="500" placeholder="Tulis pertanyaan…" required>
         </div>
 
+        <div class="baris-form">
+          <span class="label">Gambar <span style="text-transform:none;letter-spacing:0">(opsional — tampil di sebelah kiri pertanyaan)</span></span>
+          <div class="baris baris-rapat" style="align-items:center">
+            <input type="file" id="input-gambar" accept="image/*" class="sembunyi">
+            <button class="btn btn-garis btn-kecil" type="button" id="btn-pilih-gambar">Pilih Gambar</button>
+            <button class="btn btn-garis btn-kecil sembunyi" type="button" id="btn-hapus-gambar">Hapus Gambar</button>
+          </div>
+          <img id="pratinjau-gambar" class="pratinjau-gambar sembunyi" alt="Pratinjau gambar pertanyaan">
+        </div>
+
         <div class="baris-form" id="blok-opsi">
           <span class="label">Pilihan jawaban <span id="petunjuk-benar" class="sembunyi" style="text-transform:none;letter-spacing:0">— klik ✓ untuk menandai jawaban benar</span></span>
           <div class="tumpuk" id="daftar-opsi"></div>

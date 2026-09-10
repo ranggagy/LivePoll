@@ -30,11 +30,19 @@ async def dapatkan_db():
 async def siapkan_skema() -> None:
     """Buat tabel bila belum ada (cukup untuk aplikasi internal sekecil ini)."""
     from . import models  # noqa: F401  -- pastikan model ter-register
+    from sqlalchemy import text
 
     async with engine.begin() as conn:
         if IS_SQLITE:
             # WAL bikin baca-tulis bersamaan jauh lebih lancar di SQLite.
-            from sqlalchemy import text
-
             await conn.execute(text("PRAGMA journal_mode=WAL"))
         await conn.run_sync(Base.metadata.create_all)
+
+        # create_all tidak mengubah tabel yang sudah ada — kolom yang
+        # ditambahkan belakangan ke model harus dimigrasi manual di sini.
+        if IS_SQLITE:
+            kolom = {row[1] for row in (await conn.execute(text("PRAGMA table_info(questions)"))).fetchall()}
+            if "gambar" not in kolom:
+                await conn.execute(text("ALTER TABLE questions ADD COLUMN gambar TEXT"))
+        else:
+            await conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS gambar TEXT"))

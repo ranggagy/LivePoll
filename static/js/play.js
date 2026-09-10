@@ -9,6 +9,7 @@ import {
   gantiTampilan,
   toast,
   bangunPodiumHtml,
+  mainkanKembangApi,
   escapeHtml,
   CincinTimer,
   KlienSoket,
@@ -70,7 +71,10 @@ function gambarPertanyaan(pertanyaan, sudahMenjawab, jawabanSaya) {
         <span class="chip">Pertanyaan ${pertanyaan.urutan_ke} dari ${pertanyaan.total_soal}</span>
         <span class="tag-tipe">${pertanyaan.tipe === "mc" ? "Pilih satu" : pertanyaan.tipe === "rating" ? "Beri nilai" : "Isi jawaban"}</span>
       </div>
-      <h2 style="font-size:20px;line-height:1.3">${escapeHtml(pertanyaan.teks)}</h2>
+      <div class="pertanyaan-baris">
+        ${pertanyaan.gambar ? `<img class="pertanyaan-gambar kecil" src="${pertanyaan.gambar}" alt="">` : ""}
+        <h2 class="tumbuh" style="font-size:20px;line-height:1.3">${escapeHtml(pertanyaan.teks)}</h2>
+      </div>
       <div class="mt-24" id="area-jawab"></div>
       <p class="muted tengah mt-16" id="status-jawab"></p>`;
   });
@@ -357,6 +361,7 @@ function gambarSesiSelesai(papan) {
       $("#podium-wadah").innerHTML = bangunPodiumHtml(papan, tersimpan ? tersimpan.participant_id : null);
     }
   });
+  if (adaPodium) mainkanKembangApi();
 }
 
 /* ------------------------------------------------------------ Soket ----- */

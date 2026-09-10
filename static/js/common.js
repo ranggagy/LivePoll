@@ -376,6 +376,90 @@ export class KlienSoket {
   }
 }
 
+/* --------------------------------------------------------- Fireworks ---- */
+
+let kembangApiSudahMain = false;
+
+/**
+ * Kembang api singkat di seluruh layar — dipakai sekali saat podium Quiz
+ * Mode pertama kali tampil. Ditandai `sudahMain` supaya reconnect WebSocket
+ * (yang mengirim ulang `sesi_selesai`) tidak memicunya berkali-kali.
+ */
+export function mainkanKembangApi() {
+  if (kembangApiSudahMain || gerakDikurangi()) return;
+  kembangApiSudahMain = true;
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "kembang-api-overlay";
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  const ukur = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+  ukur();
+  window.addEventListener("resize", ukur);
+
+  const warna = ["#c6f135", "#8fae1f", "#ffd166", "#ef476f", "#06d6a0", "#118ab2", "#ffffff"];
+  let partikel = [];
+
+  const letuskan = () => {
+    const x = canvas.width * (0.15 + Math.random() * 0.7);
+    const y = canvas.height * (0.15 + Math.random() * 0.35);
+    const jumlah = 42;
+    const warnaLetusan = warna[(Math.random() * warna.length) | 0];
+    for (let i = 0; i < jumlah; i++) {
+      const sudut = (Math.PI * 2 * i) / jumlah + Math.random() * 0.25;
+      const kecepatan = 1.8 + Math.random() * 2.8;
+      partikel.push({
+        x, y,
+        vx: Math.cos(sudut) * kecepatan,
+        vy: Math.sin(sudut) * kecepatan,
+        hidup: 1,
+        warna: warnaLetusan,
+      });
+    }
+  };
+
+  let letusanTersisa = 6;
+  letuskan();
+  const jadwal = setInterval(() => {
+    letusanTersisa -= 1;
+    if (letusanTersisa <= 0) {
+      clearInterval(jadwal);
+      return;
+    }
+    letuskan();
+  }, 450);
+
+  let raf;
+  const gambar = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    partikel = partikel.filter((p) => p.hidup > 0);
+    for (const p of partikel) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.045;
+      p.hidup -= 0.013;
+      ctx.globalAlpha = Math.max(p.hidup, 0);
+      ctx.fillStyle = p.warna;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    raf = requestAnimationFrame(gambar);
+  };
+  gambar();
+
+  setTimeout(() => {
+    cancelAnimationFrame(raf);
+    clearInterval(jadwal);
+    window.removeEventListener("resize", ukur);
+    canvas.remove();
+  }, 3600);
+}
+
 /* ----------------------------------------------------------- Podium ----- */
 
 const MEDALI_PODIUM = { 1: "🥇", 2: "🥈", 3: "🥉" };

@@ -83,6 +83,9 @@ class Pertanyaan(Base):
     session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), index=True)
     tipe: Mapped[str] = mapped_column(String(20), default=TIPE_MC)
     teks: Mapped[str] = mapped_column(Text)
+    # Data URI base64 (mis. "data:image/png;base64,..."). Disimpan langsung di
+    # DB, bukan file di disk, supaya tetap ada setelah redeploy di Render.
+    gambar: Mapped[str | None] = mapped_column(Text, nullable=True)
     urutan: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(10), default=STATUS_Q_DRAFT)
 

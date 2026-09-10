@@ -93,6 +93,7 @@ class StatePertanyaan:
         self.id = q.id
         self.tipe = q.tipe
         self.teks = q.teks
+        self.gambar = q.gambar
         # Hanya Quiz Mode yang punya batas waktu; soal survey ditutup manual
         # oleh presenter, jadi tidak boleh kedaluwarsa sendiri.
         self.bertimer = bertimer
@@ -186,6 +187,7 @@ class StatePertanyaan:
             "id": self.id,
             "tipe": self.tipe,
             "teks": self.teks,
+            "gambar": self.gambar,
             "urutan_ke": self.urutan_ke,
             "total_soal": self.total_soal,
             "durasi": self.durasi if self.bertimer else None,

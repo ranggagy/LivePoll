@@ -22,6 +22,8 @@ class PertanyaanIn(BaseModel):
     durasi_detik: int = Field(default=DURASI_DEFAULT, ge=5, le=300)
     rating_maks: int = Field(default=5, ge=2, le=10)
     opsi: list[OpsiIn] = []
+    # Data URI base64 ("data:image/...;base64,..."), dikirim sudah dienkode dari browser.
+    gambar: str | None = Field(default=None, max_length=3_000_000)
 
 
 class UrutanIn(BaseModel):

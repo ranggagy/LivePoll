@@ -63,6 +63,7 @@ def rangkum_pertanyaan(q: Pertanyaan) -> dict:
         "status": q.status,
         "durasi_detik": q.durasi_detik,
         "rating_maks": q.rating_maks,
+        "gambar": q.gambar,
         "opsi": [{"id": o.id, "teks": o.teks, "is_benar": o.is_benar} for o in q.daftar_opsi],
     }
 
@@ -225,6 +226,7 @@ async def tambah_pertanyaan(kode: str, payload: PertanyaanIn, db: AsyncSession =
         session_id=sesi.id,
         tipe=payload.tipe,
         teks=payload.teks.strip(),
+        gambar=payload.gambar,
         urutan=(urutan_maks or 0) + 1,
         status=STATUS_Q_DRAFT,
         durasi_detik=payload.durasi_detik,
@@ -255,6 +257,7 @@ async def ubah_pertanyaan(qid: int, payload: PertanyaanIn, db: AsyncSession = De
 
     q.tipe = payload.tipe
     q.teks = payload.teks.strip()
+    q.gambar = payload.gambar
     q.durasi_detik = payload.durasi_detik
     q.rating_maks = payload.rating_maks
     await db.execute(delete(Opsi).where(Opsi.question_id == q.id))
@@ -306,6 +309,8 @@ def _validasi_pertanyaan(sesi: Sesi | None, payload: PertanyaanIn) -> None:
         if sesi is not None and sesi.mode == MODE_QUIZ and not any(o.is_benar for o in opsi_bersih):
             raise HTTPException(400, "Quiz Mode butuh tepat satu jawaban benar")
         payload.opsi = opsi_bersih
+    if payload.gambar and not payload.gambar.startswith("data:image/"):
+        raise HTTPException(400, "Format gambar tidak valid")
 
 
 def _segarkan_total_soal(kode: str, delta: int) -> None:
