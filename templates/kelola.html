@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah" data-kode="{{ kode }}">
+  <div class="topbar">
+    <a class="merek" href="/admin"><span class="titik"></span>← KEMBALI KE ADMIN</a>
+    <div class="baris baris-rapat">
+      <a class="btn btn-kecil btn-garis" id="btn-export" href="/api/admin/sesi/{{ kode }}/export.xlsx">Export Excel</a>
+      <a class="btn btn-kecil btn-utama" href="/present/{{ kode }}" target="_blank" rel="noopener">Buka Layar Presenter</a>
+    </div>
+  </div>
+
+  <div class="kartu mb-24">
+    <div class="kartu-kepala">
+      <div>
+        <div class="kartu-judul" id="judul-sesi">Memuat…</div>
+        <div class="kartu-sub" id="sub-sesi">—</div>
+      </div>
+      <span class="kode-pil">{{ kode }}</span>
+    </div>
+    <div class="kartu-isi">
+      <div id="daftar-pertanyaan">
+        <div class="rangka" style="height:56px;margin-bottom:10px"></div>
+        <div class="rangka" style="height:56px"></div>
+      </div>
+      <div class="baris mt-24">
+        <button class="btn btn-gelap tumbuh" id="btn-tambah">+ Tambah Pertanyaan</button>
+        <button class="btn btn-bahaya" id="btn-akhiri">Akhiri Sesi</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kartu sembunyi" id="panel-form">
+    <div class="kartu-kepala">
+      <div>
+        <div class="kartu-judul" id="form-judul">Pertanyaan baru</div>
+        <div class="kartu-sub">Satu pertanyaan aktif pada satu waktu saat sesi berjalan</div>
+      </div>
+    </div>
+    <div class="kartu-isi">
+      <form id="form-pertanyaan" autocomplete="off">
+        <div class="baris-form" id="baris-tipe">
+          <span class="label">Tipe pertanyaan</span>
+          <div class="pil-grup" id="pilih-tipe" role="group" aria-label="Tipe pertanyaan">
+            <button type="button" class="pil" data-tipe="mc" aria-pressed="true">Multiple Choice</button>
+            <button type="button" class="pil" data-tipe="word_cloud" aria-pressed="false">Word Cloud</button>
+            <button type="button" class="pil" data-tipe="rating" aria-pressed="false">Rating</button>
+          </div>
+        </div>
+
+        <div class="baris-form">
+          <label class="label" for="teks">Pertanyaan</label>
+          <input class="input" id="teks" maxlength="500" placeholder="Tulis pertanyaan…" required>
+        </div>
+
+        <div class="baris-form" id="blok-opsi">
+          <span class="label">Pilihan jawaban <span id="petunjuk-benar" class="sembunyi" style="text-transform:none;letter-spacing:0">— klik ✓ untuk menandai jawaban benar</span></span>
+          <div class="tumpuk" id="daftar-opsi"></div>
+          <button class="btn btn-garis btn-blok mt-8" type="button" id="btn-tambah-opsi">+ Tambah Opsi</button>
+        </div>
+
+        <div class="baris-form sembunyi" id="blok-rating">
+          <label class="label" for="rating-maks">Skala maksimum</label>
+          <input class="input" id="rating-maks" type="number" min="2" max="10" value="5">
+        </div>
+
+        <div class="baris-form sembunyi" id="blok-durasi">
+          <label class="label" for="durasi">Durasi timer (detik)</label>
+          <input class="input" id="durasi" type="number" min="5" max="300" value="20">
+        </div>
+
+        <div class="baris mt-16">
+          <button class="btn btn-utama tumbuh" type="submit" id="btn-simpan">Simpan Pertanyaan</button>
+          <button class="btn btn-garis" type="button" id="btn-batal">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block skrip %}
+<script type="module" src="/static/js/kelola.js?v={{ versi_aset }}"></script>
+{% endblock %}

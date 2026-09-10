@@ -1,0 +1,21 @@
+# Blueprint Render — New > Blueprint, arahkan ke repo ini.
+#
+# Databasenya TIDAK dibuat di sini: dipakai Postgres Neon (free tier yang tidak
+# kedaluwarsa). Saat Apply, Render akan meminta nilai DATABASE_URL — tempel
+# connection string dari dashboard Neon.
+services:
+  - type: web
+    name: live-polling
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    # PENTING: satu worker saja. Daftar koneksi WebSocket dan agregasi jawaban
+    # disimpan di memory instance, jadi multi-worker akan memecah state sesi.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+      - key: DATABASE_URL
+        sync: false # diisi manual saat Apply — connection string Neon

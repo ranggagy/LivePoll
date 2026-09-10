@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah wadah-sempit" data-kode="{{ kode }}" data-mode="{{ mode }}" style="padding-top:8vh">
+  <div class="tengah mb-24">
+    <span class="merek"><span class="titik hidup"></span>SESI {{ kode }}</span>
+    <h1 style="font-size:26px;margin-top:16px">{{ judul_sesi }}</h1>
+    <p class="muted mt-8">
+      {% if mode == "quiz" %}Quiz Mode · isi nickname untuk masuk lobby{% else %}Survey Mode · kamu masuk sebagai anonim{% endif %}
+    </p>
+  </div>
+
+  <div class="kartu tampilan">
+    <div class="kartu-isi">
+      <form id="form-join" autocomplete="off">
+        {% if mode == "quiz" %}
+        <div class="baris-form">
+          <label class="label" for="nickname">Nickname</label>
+          <input class="input" id="nickname" maxlength="60" placeholder="cth: Budi_S" required>
+          <p class="muted mt-8 sembunyi" id="pesan" role="alert" style="color:var(--danger)"></p>
+        </div>
+        {% else %}
+        <p class="muted tengah mb-16">Tidak perlu nama atau akun. Jawabanmu tercatat anonim.</p>
+        <p class="muted tengah sembunyi" id="pesan" role="alert" style="color:var(--danger)"></p>
+        {% endif %}
+        <button class="btn btn-utama btn-blok" type="submit" id="btn-gabung">Gabung</button>
+      </form>
+    </div>
+  </div>
+
+  <p class="muted tengah mt-16">
+    Gunakan satu perangkat yang sama sampai sesi selesai.
+  </p>
+</div>
+{% endblock %}
+
+{% block skrip %}
+<script type="module">
+  import { $, api, bacaLokal, simpanLokal } from "/static/js/common.js?v={{ versi_aset }}";
+
+  const akar = document.querySelector("[data-kode]");
+  const KODE = akar.dataset.kode;
+  const KUNCI = `livepoll:${KODE}`;
+  const form = $("#form-join");
+  const pesan = $("#pesan");
+  const tombol = $("#btn-gabung");
+
+  // Sudah pernah join di perangkat ini? Langsung lanjut tanpa isi ulang.
+  const tersimpan = bacaLokal(KUNCI);
+  if (tersimpan && tersimpan.token) {
+    tombol.disabled = true;
+    tombol.textContent = "Menyambungkan…";
+    api(`/api/gabung/${KODE}`, { method: "POST", body: { token: tersimpan.token } })
+      .then((hasil) => {
+        simpanLokal(KUNCI, { token: hasil.token, participant_id: hasil.participant_id, nickname: hasil.nickname });
+        location.replace(`/play/${KODE}`);
+      })
+      .catch(() => {
+        tombol.disabled = false;
+        tombol.textContent = "Gabung";
+      });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    pesan.classList.add("sembunyi");
+    tombol.disabled = true;
+    const semula = tombol.textContent;
+    tombol.textContent = "Menggabungkan…";
+    const nicknameEl = $("#nickname");
+    try {
+      const hasil = await api(`/api/gabung/${KODE}`, {
+        method: "POST",
+        body: { nickname: nicknameEl ? nicknameEl.value : null },
+      });
+      simpanLokal(KUNCI, { token: hasil.token, participant_id: hasil.participant_id, nickname: hasil.nickname });
+      location.href = `/play/${KODE}`;
+    } catch (err) {
+      pesan.textContent = err.message;
+      pesan.classList.remove("sembunyi");
+      tombol.disabled = false;
+      tombol.textContent = semula;
+      if (nicknameEl) {
+        nicknameEl.focus();
+        nicknameEl.animate(
+          [{ transform: "translateX(0)" }, { transform: "translateX(-6px)" },
+           { transform: "translateX(6px)" }, { transform: "translateX(0)" }],
+          { duration: 240, easing: "ease-in-out" }
+        );
+      }
+    }
+  });
+</script>
+{% endblock %}

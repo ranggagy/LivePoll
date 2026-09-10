@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah wadah-lebar" data-kode="{{ kode }}" data-mode="{{ mode }}" data-tautan="{{ tautan_join }}">
+  <div class="topbar">
+    <span class="merek"><span class="titik hidup"></span>LIVE · <span id="jumlah-online">0</span> ONLINE</span>
+    <div class="baris baris-rapat">
+      <a class="btn btn-kecil btn-garis" href="/admin/{{ kode }}">Kelola Sesi</a>
+      <button class="btn btn-kecil btn-garis" id="btn-layar-penuh">Layar Penuh</button>
+    </div>
+  </div>
+
+  <div class="panggung" id="panggung">
+    <!-- Kolom utama -->
+    <div class="kartu">
+      <div class="kartu-kepala">
+        <div class="tumbuh">
+          <div class="kartu-judul">{{ judul_sesi }}</div>
+          <div class="kartu-sub" id="sub-panggung">{{ "Quiz Mode" if mode == "quiz" else "Survey Mode" }}</div>
+        </div>
+        <div class="baris baris-rapat" style="align-items:center">
+          <div class="cincin-timer besar sembunyi" id="timer"></div>
+          <span class="kode-pil">{{ kode }}</span>
+        </div>
+      </div>
+      <div class="kartu-isi" id="isi-panggung">
+        <div class="spinner-halaman"></div>
+      </div>
+    </div>
+
+    <!-- Kolom samping: moderasi / leaderboard -->
+    <div class="tumpuk" id="samping">
+      <div class="kartu sembunyi" id="kartu-moderasi">
+        <div class="kartu-kepala">
+          <div class="kartu-judul">Moderasi Word Cloud</div>
+          <span class="chip" id="jumlah-pending">0 PENDING</span>
+        </div>
+        <div class="kartu-isi">
+          <div class="antrian-kata" id="antrian-kata"></div>
+          <div class="baris mt-16">
+            <button class="btn btn-gelap tumbuh" id="btn-approve-semua">Approve Semua</button>
+            <button class="btn btn-garis" id="btn-reject-semua">Tolak Semua</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kartu {{ '' if mode == 'quiz' else 'sembunyi' }}" id="kartu-papan">
+        <div class="kartu-kepala">
+          <div class="kartu-judul">Leaderboard</div>
+          <span class="chip chip-aksen">LIVE</span>
+        </div>
+        <div class="kartu-isi" id="papan-isi">
+          <div class="kosong">Belum ada skor</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="baris mt-24" id="kontrol">
+    <button class="btn btn-gelap" id="btn-tutup" disabled>Tutup Soal Sekarang</button>
+    <button class="btn btn-garis" id="btn-berikutnya">Soal Berikutnya →</button>
+    <a class="btn btn-garis" href="/api/admin/sesi/{{ kode }}/export.xlsx">Export Excel</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block skrip %}
+<script type="module" src="/static/js/present.js?v={{ versi_aset }}"></script>
+{% endblock %}

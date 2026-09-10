@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah layar-hp" data-kode="{{ kode }}" data-mode="{{ mode }}">
+  <div class="topbar" style="margin-bottom:18px">
+    <span class="merek"><span class="titik hidup"></span><span id="label-sesi">SESI {{ kode }}</span></span>
+    <div class="baris baris-rapat" style="align-items:center">
+      <span class="chip sembunyi" id="chip-poin">0 pts</span>
+      <div class="cincin-timer sembunyi" id="timer"></div>
+    </div>
+  </div>
+
+  <div class="kartu">
+    <div class="kartu-isi" id="panggung">
+      <div class="spinner-halaman"></div>
+    </div>
+  </div>
+
+  <p class="muted tengah mt-16" id="kaki">{{ judul_sesi }}</p>
+</div>
+{% endblock %}
+
+{% block skrip %}
+<script type="module" src="/static/js/play.js?v={{ versi_aset }}"></script>
+{% endblock %}

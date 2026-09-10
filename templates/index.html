@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah wadah-sempit" style="padding-top:9vh">
+  <div class="tengah mb-24">
+    <span class="merek"><span class="titik hidup"></span>LIVE POLLING</span>
+    <h1 style="font-size:34px;margin-top:18px">Polling interaktif,<br>tanpa batas partisipan</h1>
+    <p class="muted mt-8">Masukkan kode sesi dari presenter, atau scan QR di layar.</p>
+  </div>
+
+  <div class="kartu tampilan">
+    <div class="kartu-isi">
+      <form id="form-gabung" autocomplete="off">
+        <label class="label" for="kode">Kode sesi</label>
+        <input class="input input-kode" id="kode" name="kode" maxlength="6" inputmode="latin"
+               placeholder="ABC123" aria-describedby="pesan-kode" required>
+        <p class="muted tengah mt-8 sembunyi" id="pesan-kode" role="status" style="color:var(--danger)"></p>
+        <button class="btn btn-utama btn-blok mt-16" type="submit">Gabung Sesi</button>
+      </form>
+      <div class="pemisah"><span>ATAU</span></div>
+      <a class="btn btn-garis btn-blok" href="/admin">Buka Panel Admin</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block skrip %}
+<script type="module">
+  import { $, api } from "/static/js/common.js?v={{ versi_aset }}";
+  const form = $("#form-gabung");
+  const input = $("#kode");
+  const pesan = $("#pesan-kode");
+
+  input.addEventListener("input", () => {
+    input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    pesan.classList.add("sembunyi");
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const kode = input.value.trim();
+    if (kode.length < 4) return;
+    const tombol = form.querySelector("button");
+    tombol.disabled = true;
+    try {
+      const info = await api(`/api/sesi/${kode}/info`);
+      if (!info.ada) throw new Error("Sesi tidak ditemukan atau sudah berakhir");
+      location.href = `/join/${kode}`;
+    } catch (err) {
+      pesan.textContent = err.message;
+      pesan.classList.remove("sembunyi");
+      // Getar halus sebagai umpan balik kode salah.
+      input.animate(
+        [{ transform: "translateX(0)" }, { transform: "translateX(-7px)" },
+         { transform: "translateX(7px)" }, { transform: "translateX(0)" }],
+        { duration: 260, easing: "ease-in-out" }
+      );
+      tombol.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

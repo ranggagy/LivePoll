@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah">
+  <div class="topbar">
+    <a class="merek" href="/"><span class="titik"></span>LIVE POLLING · ADMIN</a>
+    <button class="btn btn-utama" id="btn-buka-buat">+ Sesi Baru</button>
+  </div>
+
+  <div class="kartu mb-24 sembunyi tampilan" id="panel-buat">
+    <div class="kartu-kepala">
+      <div>
+        <div class="kartu-judul">Buat sesi baru</div>
+        <div class="kartu-sub">Kode sesi dibuat otomatis dan langsung bisa dibagikan</div>
+      </div>
+    </div>
+    <div class="kartu-isi">
+      <form id="form-buat" autocomplete="off">
+        <div class="baris-form">
+          <label class="label" for="judul">Judul sesi</label>
+          <input class="input" id="judul" maxlength="200" placeholder="cth: Rapat Sosialisasi Q4 2026" required>
+        </div>
+        <div class="baris-form">
+          <span class="label">Mode sesi</span>
+          <div class="pil-grup" id="pilih-mode" role="group" aria-label="Mode sesi">
+            <button type="button" class="pil" data-mode="survey" aria-pressed="true">Survey Mode</button>
+            <button type="button" class="pil" data-mode="quiz" aria-pressed="false">Quiz Mode</button>
+          </div>
+          <p class="muted mt-8" id="ket-mode">
+            Polling/kuesioner biasa. Partisipan anonim, tanpa skor.
+          </p>
+        </div>
+        <div class="baris">
+          <button class="btn btn-utama tumbuh" type="submit">Buat Sesi</button>
+          <button class="btn btn-garis" type="button" id="btn-batal-buat">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="kartu">
+    <div class="kartu-kepala">
+      <div>
+        <div class="kartu-judul">Riwayat sesi</div>
+        <div class="kartu-sub" id="ringkas-sesi">Memuat…</div>
+      </div>
+    </div>
+    <div class="kartu-isi" id="daftar-sesi">
+      <div class="rangka" style="height:64px;margin-bottom:10px"></div>
+      <div class="rangka" style="height:64px;margin-bottom:10px"></div>
+      <div class="rangka" style="height:64px"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block skrip %}
+<script type="module">
+  import { $, $$, api, toast } from "/static/js/common.js?v={{ versi_aset }}";
+
+  let mode = "survey";
+  const KET_MODE = {
+    survey: "Polling/kuesioner biasa. Partisipan anonim, tanpa skor.",
+    quiz: "Kompetitif seperti Kahoot. Wajib nickname, ada timer, skor kecepatan, dan leaderboard.",
+  };
+
+  $("#btn-buka-buat").addEventListener("click", () => {
+    const panel = $("#panel-buat");
+    panel.classList.remove("sembunyi");
+    $("#judul").focus();
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  $("#btn-batal-buat").addEventListener("click", () => $("#panel-buat").classList.add("sembunyi"));
+
+  $$("#pilih-mode .pil").forEach((pil) => {
+    pil.addEventListener("click", () => {
+      mode = pil.dataset.mode;
+      $$("#pilih-mode .pil").forEach((p) => p.setAttribute("aria-pressed", String(p === pil)));
+      $("#ket-mode").textContent = KET_MODE[mode];
+    });
+  });
+
+  $("#form-buat").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const tombol = e.target.querySelector('button[type="submit"]');
+    tombol.disabled = true;
+    try {
+      const sesi = await api("/api/admin/sesi", { method: "POST", body: { judul: $("#judul").value, mode } });
+      toast(`Sesi ${sesi.kode_sesi} dibuat`, "sukses");
+      location.href = `/admin/${sesi.kode_sesi}`;
+    } catch (err) {
+      toast(err.message, "galat");
+      tombol.disabled = false;
+    }
+  });
+
+  function baris(s) {
+    const el = document.createElement("div");
+    el.className = "daftar-baris";
+    const aktif = s.status === "aktif";
+    el.innerHTML = `
+      <div class="tumbuh">
+        <div class="daftar-judul">${escapeHtml(s.judul)}</div>
+        <div class="baris baris-rapat mt-8" style="align-items:center">
+          <span class="chip ${aktif ? "chip-aksen" : ""}">${s.kode_sesi}</span>
+          <span class="tag-tipe">${s.mode === "quiz" ? "Quiz Mode" : "Survey Mode"}</span>
+          <span class="tag-tipe">${s.jumlah_pertanyaan} soal · ${s.jumlah_partisipan} partisipan</span>
+          ${aktif ? "" : '<span class="tag-tipe" style="color:var(--danger)">SELESAI</span>'}
+        </div>
+      </div>
+      <div class="daftar-aksi">
+        <a class="btn btn-kecil btn-garis" href="/admin/${s.kode_sesi}">Kelola</a>
+        ${aktif ? `<a class="btn btn-kecil btn-utama" href="/present/${s.kode_sesi}" target="_blank" rel="noopener">Presentasi</a>` : ""}
+      </div>`;
+    return el;
+  }
+
+  const escapeHtml = (t) =>
+    String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  async function muat() {
+    try {
+      const daftar = await api("/api/admin/sesi");
+      const wadah = $("#daftar-sesi");
+      wadah.replaceChildren();
+      $("#ringkas-sesi").textContent = `${daftar.length} sesi tercatat`;
+      if (!daftar.length) {
+        wadah.innerHTML = '<div class="kosong">Belum ada sesi. Klik “+ Sesi Baru” untuk memulai.</div>';
+        return;
+      }
+      // Muncul bertahap supaya daftar terasa mengalir, bukan menyembur sekaligus.
+      daftar.forEach((s, i) => {
+        const el = baris(s);
+        el.style.opacity = "0";
+        wadah.appendChild(el);
+        el.animate(
+          [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "translateY(0)" }],
+          { duration: 300, delay: Math.min(i * 35, 350), easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" }
+        );
+      });
+    } catch (err) {
+      $("#daftar-sesi").innerHTML = `<div class="kosong">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  muat();
+</script>
+{% endblock %}

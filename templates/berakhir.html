@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block isi %}
+<div class="wadah wadah-sempit" style="padding-top:14vh">
+  <div class="kartu tampilan">
+    <div class="kartu-isi tengah">
+      <div class="lencana-hasil" style="background:var(--surface);color:var(--muted)">✓</div>
+      <h1 style="font-size:24px">Sesi telah berakhir</h1>
+      <p class="muted mt-8">
+        Sesi dengan kode <strong>{{ kode }}</strong> sudah ditutup presenter atau tidak pernah ada.
+        Terima kasih sudah ikut berpartisipasi.
+      </p>
+      <a class="btn btn-garis btn-blok mt-24" href="/">Kembali ke halaman depan</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
