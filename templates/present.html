@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <!-- Kolom samping: moderasi / leaderboard -->
+    <!-- Kolom samping: moderasi / peserta gabung -->
     <div class="tumpuk" id="samping">
       <div class="kartu sembunyi" id="kartu-moderasi">
         <div class="kartu-kepala">
@@ -42,6 +42,18 @@
           </div>
         </div>
       </div>
+
+      {% if mode == "quiz" %}
+      <div class="kartu sembunyi" id="kartu-peserta-lobi">
+        <div class="kartu-kepala">
+          <div class="kartu-judul">Peserta Bergabung</div>
+          <span class="chip chip-aksen" id="jumlah-peserta-lobi">0</span>
+        </div>
+        <div class="kartu-isi">
+          <div class="peserta-lobi" id="daftar-peserta-lobi"></div>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 

@@ -339,7 +339,8 @@ function gambarSesiSelesai(papan) {
     if (adaPodium) {
       el.innerHTML = `
         <div class="tengah mb-16">
-          <h2 style="font-size:20px">Sesi telah berakhir</h2>
+          <h2 style="font-size:19px">🎉 Kuis Telah Berakhir!</h2>
+          <p class="tebal mt-8" style="color:var(--accent-deep)">Selamat kepada para pemenang!</p>
         </div>
         <div id="podium-wadah"></div>`;
     } else {

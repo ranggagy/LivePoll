@@ -1269,7 +1269,31 @@ textarea.input:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 24px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.qr-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(26, 26, 23, 0.82);
+  cursor: zoom-out;
+  animation: qr-lightbox-masuk 160ms ease-out;
+}
+.qr-lightbox img {
+  width: min(80vmin, 480px);
+  height: min(80vmin, 480px);
+  background: var(--putih);
+  border-radius: var(--r-lg);
+  padding: 28px;
+}
+@keyframes qr-lightbox-masuk {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .peserta-chip {
   background: var(--accent-tint);

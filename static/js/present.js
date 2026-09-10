@@ -67,22 +67,44 @@ function gambarLobi() {
     const el = document.createElement("div");
     el.innerHTML = `
       <div class="qr-kotak">
-        <img src="/qr/${KODE}.svg" alt="QR code untuk bergabung ke sesi ${KODE}" width="168" height="168">
+        <img src="/qr/${KODE}.svg" alt="QR code untuk bergabung ke sesi ${KODE}" width="168" height="168" id="qr-img" style="cursor:zoom-in">
         <div class="tumbuh">
           <div class="muted mb-8">Buka di HP lalu masukkan kode</div>
           <div class="kode-raksasa">${KODE}</div>
           <div class="muted mt-8" style="overflow-wrap:anywhere">${escapeHtml(TAUTAN)}</div>
         </div>
       </div>
-      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Soal Berikutnya” untuk memulai.</p>
-      ${KUIS ? '<div class="peserta-lobi" id="daftar-peserta-lobi"></div>' : ""}`;
+      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Soal Berikutnya” untuk memulai.</p>`;
     return el;
   }).then(() => {
-    if (!KUIS) return;
-    const wadah = $("#daftar-peserta-lobi");
-    if (!wadah) return;
-    pesertaGabung.forEach((nickname, pid) => tambahBubblePeserta(wadah, pid, nickname));
+    const qr = $("#qr-img");
+    if (qr) qr.addEventListener("click", bukaZoomQr);
   });
+
+  if (KUIS) {
+    $("#kartu-peserta-lobi").classList.remove("sembunyi");
+    const wadah = $("#daftar-peserta-lobi");
+    wadah.replaceChildren();
+    pesertaGabung.forEach((nickname, pid) => tambahBubblePeserta(wadah, pid, nickname));
+    perbaruiJumlahPeserta();
+  }
+  rapikanKolom();
+}
+
+/** Perbesar QR code dalam overlay — berguna dipindai dari jarak jauh di ruangan besar. */
+function bukaZoomQr() {
+  if ($(".qr-lightbox")) return;
+  const overlay = document.createElement("div");
+  overlay.className = "qr-lightbox";
+  overlay.innerHTML = `<img src="/qr/${KODE}.svg" alt="QR code diperbesar">`;
+  overlay.addEventListener("click", () => overlay.remove());
+  document.addEventListener("keydown", function tutupEsc(e) {
+    if (e.key === "Escape") {
+      overlay.remove();
+      document.removeEventListener("keydown", tutupEsc);
+    }
+  });
+  document.body.appendChild(overlay);
 }
 
 /** Tambah satu bubble nama ke wadah lobi, kalau belum ada. */
@@ -99,12 +121,18 @@ function tambahBubblePeserta(wadah, pid, nickname) {
   );
 }
 
+function perbaruiJumlahPeserta() {
+  const chip = $("#jumlah-peserta-lobi");
+  if (chip) chip.textContent = String(pesertaGabung.size);
+}
+
 /** Peserta baru gabung: simpan, dan tampilkan bubble kalau presenter sedang di layar lobi. */
 function tambahPesertaLobi(pid, nickname) {
   if (pesertaGabung.has(pid)) return;
   pesertaGabung.set(pid, nickname);
   const wadah = $("#daftar-peserta-lobi");
   if (wadah) tambahBubblePeserta(wadah, pid, nickname);
+  perbaruiJumlahPeserta();
 }
 
 /** Layar penutup: sesi sudah berakhir — podium untuk quiz, ucapan terima kasih untuk survey. */
@@ -116,6 +144,9 @@ function gambarSesiSelesai(sesi, leaderboard) {
   $("#btn-berikutnya").disabled = true;
   const tombolPapan = $("#btn-papan");
   if (tombolPapan) tombolPapan.disabled = true;
+  const kartuPeserta = $("#kartu-peserta-lobi");
+  if (kartuPeserta) kartuPeserta.classList.add("sembunyi");
+  rapikanKolom();
 
   const adaPodium = KUIS && leaderboard && leaderboard.podium && leaderboard.podium.length;
   gantiTampilan(isi, () => {
@@ -123,7 +154,8 @@ function gambarSesiSelesai(sesi, leaderboard) {
     if (adaPodium) {
       el.innerHTML = `
         <div class="tengah mb-24">
-          <h2 style="font-size:22px">Sesi telah berakhir</h2>
+          <h2 style="font-size:24px">🎉 Kuis Telah Berakhir!</h2>
+          <p class="tebal mt-8" style="color:var(--accent-deep)">Selamat kepada para pemenang!</p>
           <p class="muted mt-8">${escapeHtml((sesi && sesi.judul) || "")}</p>
         </div>
         <div id="podium-wadah"></div>`;
@@ -564,6 +596,11 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
     $("#btn-tutup").disabled = true;
     return;
   }
+  const kartuPeserta = $("#kartu-peserta-lobi");
+  if (kartuPeserta && !kartuPeserta.classList.contains("sembunyi")) {
+    kartuPeserta.classList.add("sembunyi");
+    rapikanKolom();
+  }
   pertanyaanTerakhir = pertanyaan;
   // Soal yang dibuka ulang memulai pengumpulan dari nol, jadi gerbang hasil
   // ikut ditutup lagi walau kerangka di layar tidak berubah — leaderboard
@@ -672,7 +709,9 @@ $("#btn-berikutnya").addEventListener("click", async (e) => {
   tombol.disabled = true;
   try {
     const hasil = await api(`/api/admin/sesi/${KODE}/berikutnya`, { method: "POST" });
-    if (hasil && hasil.habis) toast("Sudah di pertanyaan terakhir");
+    // Sudah di soal terakhir — langsung akhiri sesi supaya leaderboard/podium
+    // tampil otomatis, tidak perlu klik "Akhiri Sesi" terpisah lagi.
+    if (hasil && hasil.habis) await api(`/api/admin/sesi/${KODE}/akhiri`, { method: "POST" });
   } catch (err) {
     toast(err.message, "galat");
   } finally {
