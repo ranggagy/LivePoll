@@ -1,0 +1,56 @@
+CONTOH 5 PERTANYAAN & MODE — Live Poll App
+=============================================
+
+Mode sesi tersedia: survey (polling biasa) / quiz (ada skor & jawaban benar)
+Tipe pertanyaan tersedia: mc (pilihan ganda) / word_cloud (isian singkat) / rating (skala angka)
+
+-------------------------------------------
+1. Mode: quiz
+   Tipe: mc
+   Pertanyaan: Ibu kota Indonesia adalah?
+   Durasi: 20 detik
+   Opsi:
+     - Jakarta (BENAR)
+     - Bandung
+     - Surabaya
+     - Medan
+
+-------------------------------------------
+2. Mode: quiz
+   Tipe: mc
+   Pertanyaan: Berapa hasil dari 12 x 8?
+   Durasi: 15 detik
+   Opsi:
+     - 86
+     - 96 (BENAR)
+     - 106
+     - 92
+
+-------------------------------------------
+3. Mode: survey
+   Tipe: mc
+   Pertanyaan: Menu makan siang favoritmu hari ini apa?
+   Durasi: 20 detik
+   Opsi:
+     - Nasi goreng
+     - Ayam geprek
+     - Soto
+     - Bakso
+
+-------------------------------------------
+4. Mode: survey
+   Tipe: word_cloud
+   Pertanyaan: Sebutkan satu kata untuk menggambarkan acara ini
+   Durasi: 20 detik
+   (peserta ketik bebas, hasil ditampilkan sebagai word cloud)
+
+-------------------------------------------
+5. Mode: survey
+   Tipe: rating
+   Pertanyaan: Seberapa puas kamu dengan sesi ini?
+   Durasi: 20 detik
+   Skala: 1-5
+
+=============================================
+Catatan: file ini hanya referensi manual, bukan format import.
+Input pertanyaan tetap dilakukan lewat panel admin aplikasi.
