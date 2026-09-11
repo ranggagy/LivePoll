@@ -13,6 +13,41 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Bubble acak, aksen dipindah ke background, podium dibagi dua kolom
+
+Tiga request user (dua dari screenshot):
+
+1. **Aksen warna dipindah keluar kartu** — `.kartu-panggung` (3 blob warna di
+   dalam kartu utama presenter, ditambahkan sesi sebelumnya) dihapus total
+   sesuai permintaan eksplisit — user mau kotak putih polos, aksen cukup di
+   background halaman (body::before/::after yang sudah ada sebelumnya, tidak
+   diubah). File: [app.css](static/css/app.css),
+   [present.html](templates/present.html).
+2. **Bubble "Peserta Bergabung" jadi acak, bukan grid rapi** — dua penyebab
+   ketahuan dari screenshot: (a) `align-items` flex default (`stretch`)
+   membuat bubble kecil ikut ditarik setinggi bubble besar di baris yang
+   sama, jadi kelihatan seragam → diganti `flex-start`; (b) warna & ukuran
+   dipilih dari `pid % 4` / `pid % 3` — untuk id partisipan yang berurutan
+   (join satu-satu berurutan), modulo berurutan menghasilkan pola visual yang
+   ikut berurutan juga (kelihatan seperti grid 2 kolom). Diganti hash kecil
+   (`hashKecil()`, tiap atribut pakai "garam" beda supaya warna/ukuran tidak
+   berkorelasi) + jitter posisi vertikal ±6px per bubble. Tetap deterministik
+   per id (tidak berubah-ubah tiap render ulang), tapi visual tidak lagi
+   berpola. File: [present.js](static/js/present.js).
+3. **Podium di Layar Penuh dibagi dua kolom sama besar** — sebelumnya kolom
+   podium `minmax(0,1fr)` jauh lebih lebar dari kolom tabel
+   (`minmax(260px,360px)`), dan podium cuma disandarkan ke kanan kolomnya
+   sendiri — hasilnya podium jadi kecil menggantung di tengah dengan jurang
+   kosong raksasa di kiri layar. Diganti `grid-template-columns: 1fr 1fr`
+   (persis dibagi dua), podium ditengahkan di kolom kirinya, tabel dikasih
+   `max-width: 460px` dan disandarkan ke kiri kolom kanannya (bukan melebar
+   penuh sampai mepet tepi layar). File: [app.css](static/css/app.css).
+
+**Catatan verifikasi**: sama seperti perbaikan podium sebelumnya, CSS
+`:fullscreen` tidak bisa disimulasikan langsung di browser pane sandbox —
+tata letak grid diverifikasi dengan menerapkan aturan yang sama lewat
+inline style JS untuk pratinjau visual.
+
 ## 2026-09-11 — Bug asli: baris ke-10 leaderboard bisa kepotong di viewport pendek
 
 User minta pastikan 10 baris leaderboard SELALU terlihat penuh di Layar

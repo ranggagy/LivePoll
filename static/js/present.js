@@ -291,16 +291,31 @@ function bukaZoomQr() {
   document.body.appendChild(overlay);
 }
 
+/** Hash kecil deterministik — id partisipan yang berurutan (1,2,3,4,...)
+    jangan sampai menghasilkan pola warna/ukuran yang ikut berurutan juga
+    (itu yang bikin bubble kelihatan seperti grid rapi, bukan acak). */
+function hashKecil(n, garam) {
+  let h = (n * 2654435761 + garam * 40503) >>> 0;
+  h = (h ^ (h >>> 13)) >>> 0;
+  return h;
+}
+
 /** Tambah satu bubble nama ke wadah lobi, kalau belum ada. */
 function tambahBubblePeserta(wadah, pid, nickname) {
   if (wadah.querySelector(`[data-pid="${pid}"]`)) return;
   const el = document.createElement("span");
-  // Gantian 4 warna + 3 ukuran berdasarkan id partisipan, supaya tiap nama
-  // konsisten warna/ukurannya sendiri (tidak berubah-ubah tiap render ulang)
-  // tapi lobi terasa hidup — bukan barisan pil seragam.
-  el.className = `chip peserta-chip warna-${(pid % 4) + 1} ukuran-${(pid % 3) + 1}`;
+  // Warna, ukuran, dan jitter posisi masing-masing dari hash yang beda garam
+  // supaya tidak berkorelasi satu sama lain — hasilnya terasa acak/organik,
+  // tapi tetap konsisten untuk id yang sama tiap render ulang (bukan berubah
+  // tiap kali, dan sengaja tidak ada ukuran yang jauh lebih besar dari yang
+  // lain supaya tidak ada satu bubble yang mendominasi).
+  const warna = (hashKecil(pid, 1) % 4) + 1;
+  const ukuran = (hashKecil(pid, 2) % 3) + 1;
+  const jitter = (hashKecil(pid, 3) % 13) - 6; // -6px..+6px
+  el.className = `chip peserta-chip warna-${warna} ukuran-${ukuran}`;
   el.dataset.pid = String(pid);
   el.textContent = nickname;
+  el.style.marginTop = `${jitter}px`;
   wadah.appendChild(el);
   el.animate(
     [{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }],
