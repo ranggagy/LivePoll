@@ -244,7 +244,9 @@ function bukaZoomQr() {
 function tambahBubblePeserta(wadah, pid, nickname) {
   if (wadah.querySelector(`[data-pid="${pid}"]`)) return;
   const el = document.createElement("span");
-  el.className = "chip peserta-chip";
+  // Gantian 4 warna kategori berdasarkan id partisipan, supaya tiap nama
+  // konsisten warnanya sendiri (tidak berubah-ubah tiap render ulang).
+  el.className = `chip peserta-chip warna-${(pid % 4) + 1}`;
   el.dataset.pid = String(pid);
   el.textContent = nickname;
   wadah.appendChild(el);

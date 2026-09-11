@@ -1488,9 +1488,27 @@ textarea.input:focus {
   to { opacity: 1; }
 }
 .peserta-chip {
-  background: var(--accent-tint);
   font-size: 13px;
   padding: 7px 14px;
+  font-weight: 700;
+  color: #ffffff;
+  border-color: transparent;
+}
+/* Bubble nama di lobi presenter dibuat warna-warni gantian (4 warna kategori
+   yang sama dengan kartu jawaban/bar hasil) supaya lobi terasa hidup begitu
+   peserta mulai berdatangan, bukan satu warna datar untuk semua nama. */
+.peserta-chip.warna-1 {
+  background: var(--kat-biru);
+}
+.peserta-chip.warna-2 {
+  background: var(--kat-merah);
+}
+.peserta-chip.warna-3 {
+  background: var(--kat-kuning);
+  color: var(--kat-kuning-teks);
+}
+.peserta-chip.warna-4 {
+  background: var(--kat-hijau);
 }
 
 /* --- Bingkai HP (halaman partisipan) ------------------------------------- */
