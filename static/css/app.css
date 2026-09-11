@@ -1065,6 +1065,37 @@ textarea.input:focus {
 :fullscreen #podium-wadah .podium {
   margin: 0 auto;
   justify-content: center;
+  gap: 20px;
+}
+/* Podium sedikit lebih besar khusus di Layar Penuh — kotak kirinya sekarang
+   punya ruang jauh lebih lega sejak dibagi dua kolom, ukuran lama (dibuat
+   untuk sidebar sempit) jadi kelihatan kecil di sana. */
+:fullscreen #podium-wadah .podium-kolom {
+  max-width: 220px;
+}
+:fullscreen #podium-wadah .podium-medali {
+  font-size: 42px;
+}
+:fullscreen #podium-wadah .podium-nama {
+  font-size: 20px;
+}
+:fullscreen #podium-wadah .podium-1 .podium-nama {
+  font-size: 23px;
+}
+:fullscreen #podium-wadah .podium-poin {
+  font-size: 16px;
+}
+:fullscreen #podium-wadah .podium-1 .podium-balok {
+  height: 180px;
+}
+:fullscreen #podium-wadah .podium-2 .podium-balok {
+  height: 132px;
+}
+:fullscreen #podium-wadah .podium-3 .podium-balok {
+  height: 96px;
+}
+:fullscreen #podium-wadah .podium-balok {
+  font-size: 26px;
 }
 /* Tabel di-CENTER dan dilebarkan mengisi sebagian besar kotaknya sendiri —
    sama seperti podium yang mengisi kotak kirinya — bukan cuma nongol kecil

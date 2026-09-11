@@ -13,6 +13,16 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Podium presenter dibesarkan sedikit di Layar Penuh
+
+Setelah kotak kiri-kanan seimbang (entri sebelumnya), user minta podiumnya
+sendiri sedikit lebih besar — ukuran lama dibuat untuk sidebar sempit,
+sekarang kotak kirinya jauh lebih lega. Ditambah `:fullscreen #podium-wadah`
+override: `.podium-kolom` max-width 160→220px, medali 30→42px, nama
+14→20px (juara 1: 16→23px), poin 12.5→16px, tinggi balok 128/92/68→
+180/132/96px, angka peringkat di balok 20→26px, gap antar kolom 12→20px.
+File: [app.css](static/css/app.css).
+
 ## 2026-09-11 — Tabel podium presenter di-center & dilebarkan mengisi kotaknya
 
 User kirim diagram: dua kotak biru sama besar di dalam satu kotak luar —
