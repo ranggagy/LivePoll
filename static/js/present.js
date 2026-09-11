@@ -372,7 +372,7 @@ function gambarSesiSelesai(sesi, leaderboard) {
     }
     return el;
   }).then(() => {
-    if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard);
+    if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard, null, true);
     sesuaikanUkuranPanggung();
   });
   if (adaPodium) mainkanKembangApi();

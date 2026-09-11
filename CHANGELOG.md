@@ -13,6 +13,28 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Tabel peringkat 4-10 di podium presenter dibesarkan
+
+Setelah podium dibagi dua kolom (entri sebelumnya), user masih bilang
+tabelnya kurang proporsional — kelihatan kecil sendirian di kolom kanan
+yang luas. Ternyata `bangunPodiumHtml()` di [common.js](static/js/common.js)
+selalu pakai kelas `.papan-baris` polos (ukuran kecil default) untuk tabel
+4-10, tanpa pernah dibedakan presenter (layar besar) vs HP peserta (layar
+kecil) — padahal varian besar (`.papan-baris.besar`, dipakai leaderboard
+panel utama) sudah ada, cuma tidak pernah dipakai di sini.
+
+**Perbaikan**: `bangunPodiumHtml(data, milikSaya, besar)` — parameter baru
+`besar` (default `false`, jadi HP peserta tidak berubah) memasang kelas
+`besar` ke tiap baris tabel. Presenter ([present.js](static/js/present.js))
+manggil dengan `besar=true`; HP peserta ([play.js](static/js/play.js))
+tetap default. `--tinggi-baris` tidak pernah di-set di layar podium (beda
+dari leaderboard panel utama), jadi otomatis jatuh ke nilai fallback CSS
+(70px) — cukup besar dan konsisten tanpa perlu hitungan dinamis tambahan.
+Lebar tabel (`.papan-lanjutan`) di Layar Penuh juga dilebarkan 460px→520px.
+
+Diverifikasi: font nama naik dari ~14px (default) ke 18.9px, tinggi baris
+~61px — jauh lebih sebanding dengan ukuran podium di sebelahnya.
+
 ## 2026-09-11 — Bubble acak, aksen dipindah ke background, podium dibagi dua kolom
 
 Tiga request user (dua dari screenshot):

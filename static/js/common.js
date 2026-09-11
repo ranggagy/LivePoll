@@ -470,10 +470,14 @@ const MEDALI_PODIUM = { 1: "🥇", 2: "🥈", 3: "🥉" };
  * tabel}`, sudah digeser server-side supaya peringkat `milikSaya` (kalau ada)
  * selalu ikut tampil beserta 2 peringkat di bawahnya. `milikSaya` dipakai
  * untuk menyorot baris/kolom milik peserta yang sedang melihat layar ini.
+ * `besar` = pakai ukuran baris tabel yang lebih besar (layar presenter,
+ * proporsional dengan podium raksasa di sebelahnya) — HP peserta tetap
+ * ukuran biasa karena layarnya kecil.
  */
-export function bangunPodiumHtml(data, milikSaya = null) {
+export function bangunPodiumHtml(data, milikSaya = null, besar = false) {
   const { podium, tabel } = data;
   const disaya = (b) => milikSaya != null && b.participant_id === milikSaya;
+  const kelasBaris = besar ? "papan-baris besar" : "papan-baris";
 
   const kolom = [podium[1], podium[0], podium[2]]
     .map((b) => {
@@ -496,7 +500,7 @@ export function bangunPodiumHtml(data, milikSaya = null) {
       ${tabel
         .map(
           (b) => `
-        <div class="papan-baris${disaya(b) ? " saya" : ""}" data-kunci="${b.participant_id}">
+        <div class="${kelasBaris}${disaya(b) ? " saya" : ""}" data-kunci="${b.participant_id}">
           <span class="papan-peringkat">${b.peringkat}</span>
           <span class="papan-nama">${escapeHtml(b.nickname)}</span>
           <span class="papan-poin">${b.poin}</span>

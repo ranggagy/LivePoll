@@ -1070,7 +1070,7 @@ textarea.input:focus {
    max-width dan disandarkan ke kiri (awal) kolomnya sendiri, supaya
    proporsional di dalam kotaknya, bukan menggantung di ujung. */
 :fullscreen #podium-wadah .papan-lanjutan {
-  max-width: 460px;
+  max-width: 520px;
   margin: 0 auto 0 0;
 }
 .papan-lompat {
