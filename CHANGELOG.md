@@ -13,6 +13,22 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit & push)_
 
+## 2026-09-11 — Tombol aksi tidak lagi merah
+
+Merah di tombol yang sering diklik terasa seperti peringatan, jadi semua
+aksi utama (Gabung, Buat Sesi, Presentasi, Simpan Pertanyaan, pil tipe
+soal, pilihan rating) pindah ke **Biru Crate `#290370`** — token baru
+`--utama` di [app.css](static/css/app.css). Chip "← Kembali ke admin"
+ikut dinetralkan jadi abu.
+
+Merah sengaja **tetap** dipakai di tiga tempat, jangan diubah tanpa alasan:
+
+- penanda non-klik (kode sesi, ring timer, titik LIVE berdenyut, chip label);
+- aksi merusak (Hapus/Akhiri Sesi, hapus opsi) — konvensi yang justru
+  membantu supaya tidak terklik tanpa sadar;
+- kartu pilihan jawaban kuis, karena merah tomat salah satu dari 4 warna
+  kategori (ini eksplisit disetujui user).
+
 ## 2026-09-11 — Palet warna baru, hitung mundur soal, dan rapikan layar presenter
 
 - **Ganti palet warna** mengikuti [PANDUAN_WARNA.md](PANDUAN_WARNA.md) (dari

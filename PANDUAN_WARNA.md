@@ -65,8 +65,19 @@ Palet ini **sudah diterapkan** — token warnanya tinggal di `:root`
 | Biru "jawaban benar" | `--benar`, `--benar-soft` |
 | Kuning juara | `--juara`, `--juara-soft` |
 | 4 warna kategori | `--kat-biru`, `--kat-merah`, `--kat-kuning`, `--kat-hijau` |
+| (tambahan) warna aksi/tombol | `--utama` = Biru Crate |
 
-Dua penyimpangan yang disengaja dari panduan, keduanya demi keterbacaan:
+**Merah tidak dipakai untuk elemen yang diklik.** Tombol/menu aksi
+(Gabung, Buat Sesi, Presentasi, Simpan, pil tipe soal, pilihan rating)
+memakai **Biru Crate `#290370`** (token `--utama`). Merah disisakan untuk:
+
+- penanda non-klik: kode sesi, ring timer, titik LIVE, chip label;
+- aksi merusak: Hapus/Akhiri Sesi, hapus opsi — di sini merah justru
+  konvensi yang benar supaya tidak terklik tanpa sadar;
+- kartu pilihan jawaban kuis (salah satu dari 4 warna kategori).
+
+Tiga penyimpangan yang disengaja dari panduan, semuanya demi keterbacaan
+atau kejelasan maksud:
 
 1. **Kartu jawaban kuning** pakai teks gelap (`#3A2E00`), bukan putih —
    memakai jalan keluar yang sudah panduan ini sendiri sebut di bagian
@@ -75,6 +86,9 @@ Dua penyimpangan yang disengaja dari panduan, keduanya demi keterbacaan:
 2. **Sorotan baris "ini kamu"** di leaderboard pakai kuning lembut, bukan
    merah/biru — merah dan biru sudah punya arti "salah"/"benar" di layar
    yang sama, jadi dipakai warna ketiga supaya tidak rancu.
+3. **Tombol CTA biru, bukan merah** (lihat bagian di atas) — permintaan
+   langsung user: merah di tombol yang sering diklik terasa seperti
+   peringatan.
 
 ## File Terkait
 - `mockup_bold_primary.html` — mockup visual lengkap sebagai referensi tata letak

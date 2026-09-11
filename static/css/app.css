@@ -23,6 +23,12 @@
   --danger: #ed1c24;
   --danger-soft: #fce1e2;
 
+  /* Warna aksi: tombol/menu yang diklik sengaja TIDAK merah — merah
+     disisakan untuk penanda non-klik (kode sesi, timer, LIVE) dan aksi
+     merusak (hapus/akhiri), supaya tidak terasa seperti peringatan. */
+  --utama: #290370;
+  --utama-terang: #3a0a94;
+
   /* Biru = jawaban benar, kuning = juara/podium teratas. */
   --benar: #235789;
   --benar-soft: #e1eaf1;
@@ -148,6 +154,8 @@ a {
   flex-wrap: wrap;
 }
 
+/* Sebagian .merek dipakai sebagai link ("← Kembali ke admin"), jadi
+   latarnya netral — merah disisakan untuk penanda, bukan untuk diklik. */
 .merek {
   display: inline-flex;
   align-items: center;
@@ -155,7 +163,7 @@ a {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  background: var(--accent-tint);
+  background: var(--surface);
   padding: 7px 14px;
   border-radius: var(--r-pill);
 }
@@ -165,7 +173,10 @@ a {
   border-radius: 50%;
   background: var(--ink);
 }
+/* Titik yang berdenyut = indikator "sedang live", bukan tombol — di sini
+   merah justru pas (seperti lampu rekaman). */
 .merek .titik.hidup {
+  background: var(--accent);
   animation: denyut 2s var(--ease-in-out) infinite;
 }
 
@@ -316,8 +327,8 @@ a {
 }
 
 .btn-utama {
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--utama);
+  color: #ffffff;
 }
 .btn-gelap {
   background: var(--ink);
@@ -452,8 +463,8 @@ textarea.input:focus {
   transform: translateY(-1px);
 }
 .pil[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--utama);
+  color: #ffffff;
 }
 
 /* --- Bar hasil ----------------------------------------------------------- */
@@ -587,7 +598,7 @@ textarea.input:focus {
 }
 .opsi-vote.terpilih {
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.45);
+  box-shadow: 0 0 0 3px rgba(41, 3, 112, 0.4);
 }
 .opsi-vote.redup {
   opacity: 0.4;
@@ -775,8 +786,9 @@ textarea.input:focus {
   transform: scale(0.94);
 }
 .rating-kotak.terpilih {
-  background: var(--accent);
+  background: var(--utama);
   border-color: var(--ink);
+  color: #ffffff;
 }
 .rating-kotak.redup {
   opacity: 0.4;
@@ -1191,7 +1203,7 @@ textarea.input:focus {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid rgba(250, 248, 243, 0.35);
+  border: 2px solid rgba(253, 255, 252, 0.35);
   border-top-color: var(--accent);
   animation: berputar 700ms linear infinite;
 }
