@@ -13,6 +13,32 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Podium-tabel didekatkan, kartu presenter dikasih aksen warna
+
+Dua request user dari screenshot layar "Kuis Telah Berakhir" di Layar Penuh:
+
+1. **Tabel peringkat 4-10 terlalu jauh dari podium** — kolom podium di grid
+   `:fullscreen #podium-wadah` (`minmax(0,1fr)`) pakai `justify-content:
+   center`, jadi podium mengambang di tengah kolomnya sendiri dan
+   menyisakan jurang kosong sebelum tabel. Diganti `justify-content:
+   flex-end` supaya podium menempel ke sisi tabel; gap grid ikut dipangkas
+   32px → 20px. File: [app.css](static/css/app.css).
+2. **Background presenter putih polos** — kartu utama presenter (yang
+   menguasai hampir seluruh layar proyektor) sekarang punya kelas
+   `.kartu-panggung` dengan 3 blob warna kategori diblur samar (opacity
+   0.07-0.12, biru + kuning + hijau), di-clip oleh `overflow:hidden`
+   bawaan `.kartu`. Class ditambahkan di
+   [present.html](templates/present.html), tidak memengaruhi kartu lain
+   (kelola, admin, sidebar moderasi/peserta) karena scoped ke class baru.
+
+**Catatan verifikasi**: CSS `:fullscreen` pseudo-class butuh Fullscreen API
+browser asli — tidak bisa disimulasikan lewat `Object.defineProperty` di
+browser pane sandbox (beda dengan `document.fullscreenElement` yang dibaca
+JS, itu bisa di-override). Perubahan tata letak grid diverifikasi dengan
+menerapkan aturan yang sama langsung lewat inline style JS untuk pratinjau
+visual, bukan lewat `:fullscreen` sungguhan — perlu dicek sekali lagi di
+Layar Penuh asli setelah deploy.
+
 ## 2026-09-11 — Baris leaderboard panel utama proporsional terhadap layar
 
 Sebelumnya `.papan-baris.besar` (leaderboard "Lihat Leaderboard →" di

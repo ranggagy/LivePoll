@@ -201,6 +201,56 @@ a {
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
+
+/* Aksen dekoratif untuk kartu utama presenter — kartu ini yang menguasai
+   hampir seluruh layar proyektor, jadi putih polos kerasa kosong. Tiga blob
+   warna kategori diblur samar, di-clip oleh overflow:hidden milik .kartu. */
+.kartu-panggung {
+  position: relative;
+}
+.kartu-panggung::before,
+.kartu-panggung::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  pointer-events: none;
+}
+.kartu-panggung::before {
+  width: 380px;
+  height: 380px;
+  background: var(--kat-biru);
+  opacity: 0.07;
+  top: -140px;
+  right: -100px;
+}
+.kartu-panggung::after {
+  width: 320px;
+  height: 320px;
+  background: var(--kat-kuning);
+  opacity: 0.12;
+  bottom: -110px;
+  left: -70px;
+}
+.kartu-panggung .aksen-hijau {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: var(--kat-hijau);
+  opacity: 0.08;
+  filter: blur(70px);
+  top: 40%;
+  right: 8%;
+  z-index: 0;
+  pointer-events: none;
+}
+.kartu-panggung > .kartu-kepala,
+.kartu-panggung > .kartu-isi {
+  position: relative;
+  z-index: 1;
+}
 .kartu-kepala {
   display: flex;
   align-items: center;
@@ -1050,11 +1100,15 @@ textarea.input:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
   align-items: center;
-  gap: 32px;
+  gap: 20px;
   text-align: left;
 }
+/* Podium disandarkan ke kanan kolomnya (dekat tabel), bukan ditengahkan —
+   supaya tabel peringkat 4-10 kelihatan menyambung, tidak ada jurang kosong
+   di antara podium dan tabel. */
 :fullscreen #podium-wadah .podium {
   margin: 0;
+  justify-content: flex-end;
 }
 :fullscreen #podium-wadah .papan-lanjutan {
   max-width: none;
