@@ -11,7 +11,54 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 ## Belum di-commit
 
-_(kosong — semua perubahan terakhir sudah di-commit & push)_
+`tools/uji_edge_case.py` (skrip baru) — belum di-commit.
+
+## 2026-09-11 — 7 skenario edge case lolos di Render sungguhan
+
+Skrip baru [tools/uji_edge_case.py](tools/uji_edge_case.py) (gaya sama seperti
+`uji_alur.py`, standalone bukan pytest), dijalankan ke
+`live-polling-tz7j.onrender.com`:
+
+```bash
+.venv/Scripts/python.exe tools/uji_edge_case.py https://nama-app.onrender.com
+```
+
+Semua **lolos**:
+
+1. **Reconnect tepat di tengah countdown 3 detik** — partisipan yang
+   putus-sambung persis di jendela hitung mundur dapat pesan `hitung_mundur`
+   (bukan opsi soal lebih awal), lalu soal terbuka normal setelah countdown
+   selesai.
+2. **Klik dobel "aktifkan soal"** — dua request `aktifkan` nyaris bersamaan
+   pada soal yang sama cuma menghasilkan SATU `pertanyaan_dibuka` yang sampai
+   ke klien (mekanisme `_generasi_aktif` di `runtime.py` bekerja sesuai
+   desain), soal tidak macet.
+3. **Survey Mode + Quiz Mode jalan bersamaan** — agregat jawaban dua sesi
+   berbeda tidak bocor silang meski soal dibuka & dijawab hampir serentak.
+4. **Gambar besar di pertanyaan** — 1.9MB tersimpan utuh. **Catatan (bukan
+   bug baru, sudah didokumentasikan sebelumnya)**: gambar 2.6MB (di atas
+   batas 2MB yang cuma ditulis di form UI) tetap **diterima server** karena
+   `_validasi_pertanyaan` di `api_admin.py` cuma cek prefix
+   `data:image/...`, tidak ada validasi ukuran sisi server.
+5. **Nickname sama dikirim bersamaan oleh 2 "device"** — dikirim betul-betul
+   paralel (bukan berurutan) lewat 3 thread terpisah: tepat satu yang lolos,
+   dua lainnya kena 409 lewat jalur `IntegrityError` di `api_peserta.py`
+   (bukan cuma pre-check SELECT), DB tidak pernah punya nickname duplikat.
+6. **Presenter reconnect di tengah sesi** (socket) — dapat kembali soal aktif
+   & agregat jawaban yang sudah masuk.
+6b. **Restart instance Render sungguhan** (bukan cuma reconnect socket) —
+   diuji manual: buat sesi aktif dengan soal bertimer 180 detik + 2 jawaban
+   masuk, lalu restart service dari dashboard Render di tengah jalan. Setelah
+   restart, `manajer.py` berhasil membangun ulang `RuntimeSesi` dari database:
+   soal aktif, 2 jawaban, dan sisa waktu timer semuanya selamat. Mode ini
+   perlu aksi manual (skrip menunggu 60 detik lalu mengecek):
+   ```bash
+   .venv/Scripts/python.exe tools/uji_edge_case.py https://nama-app.onrender.com restart
+   ```
+7. **Partisipan putus koneksi sebelum soal ditutup, balik setelahnya** — baik
+   yang sempat menjawab maupun yang tidak, keduanya mendapat `pribadi`
+   (menjawab/poin) yang benar saat reconnect, soal tetap ditutup timer meski
+   keduanya offline saat itu.
 
 ## 2026-09-11 — Uji beban 200 partisipan lolos di Render
 
