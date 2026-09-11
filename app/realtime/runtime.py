@@ -383,7 +383,7 @@ class RuntimeSesi:
     def leaderboard_terurut(self) -> list[tuple[int, int]]:
         return sorted(self.poin_total.items(), key=lambda x: (-x[1], self.nama.get(x[0], "")))
 
-    def payload_leaderboard(self, batas: int = 12) -> dict:
+    def payload_leaderboard(self, batas: int = 10) -> dict:
         urut = self.leaderboard_terurut()
         baris = [
             {"participant_id": pid, "nickname": self.nama.get(pid) or "Anonim", "poin": poin, "peringkat": i + 1}

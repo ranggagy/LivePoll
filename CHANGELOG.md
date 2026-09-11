@@ -13,6 +13,37 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Bubble ukuran gantian, leaderboard maks 10, muncul otomatis
+
+Tiga request user:
+
+1. **Bubble "Peserta Bergabung" ukuran gantian** — sebelumnya semua pil nama
+   ukurannya sama. Sekarang gantian 3 ukuran (`.peserta-chip.ukuran-1/2/3`,
+   12/15/18px) berdasarkan sisa bagi id partisipan — sama seperti pola warna
+   yang sudah ada, jadi tiap nama konsisten ukurannya sendiri walau layar
+   di-render ulang, dan lobi terasa seperti tag cloud organik bukan barisan
+   pil seragam. File: [present.js](static/js/present.js),
+   [app.css](static/css/app.css).
+2. **Leaderboard maksimal 10 nama** — `payload_leaderboard()` di
+   [runtime.py](app/realtime/runtime.py) defaultnya diturunkan 12 → 10.
+   Satu tempat ubah berlaku ke tiga pemakainya sekaligus: leaderboard
+   panel utama presenter setelah soal ditutup, dan leaderboard saat
+   presenter/reconnect state.
+3. **Leaderboard otomatis muncul 3 detik setelah hasil** — presenter tidak
+   perlu klik "Lihat Leaderboard →" lagi; begitu soal ditutup dan grafik
+   hasil tampil, `setTimeout(bukaLeaderboard, 3000)` di
+   [present.js](static/js/present.js) otomatis membuka panel leaderboard.
+   Timer dibatalkan (`batalkanLeaderboardOtomatis()`) kalau presenter
+   sempat pindah soal/lobi/sesi selesai duluan sebelum 3 detik, atau kalau
+   presenter sudah klik manual — logika buka/tutup leaderboard dirapikan
+   jadi dua fungsi `bukaLeaderboard()`/`tutupLeaderboard()` yang dipakai
+   baik oleh tombol maupun timer otomatis (sebelumnya cuma inline di handler
+   klik tombol).
+
+Diverifikasi dengan timestamp asli (`Date.now()`, bukan asumsi durasi
+`setTimeout`): leaderboard muncul di rentang 3.0-3.5 detik setelah soal
+ditutup, tepat 10 baris tampil dari 15 peserta uji.
+
 ## 2026-09-11 — Podium-tabel didekatkan, kartu presenter dikasih aksen warna
 
 Dua request user dari screenshot layar "Kuis Telah Berakhir" di Layar Penuh:

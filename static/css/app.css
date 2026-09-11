@@ -1571,6 +1571,20 @@ textarea.input:focus {
 .peserta-chip.warna-4 {
   background: var(--kat-hijau);
 }
+/* Ukuran gantian juga (3 tingkat), supaya lobi terasa organik seperti tag
+   cloud, bukan barisan pil seragam. */
+.peserta-chip.ukuran-1 {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+.peserta-chip.ukuran-2 {
+  font-size: 15px;
+  padding: 8px 16px;
+}
+.peserta-chip.ukuran-3 {
+  font-size: 18px;
+  padding: 9px 18px;
+}
 
 /* --- Bingkai HP (halaman partisipan) ------------------------------------- */
 

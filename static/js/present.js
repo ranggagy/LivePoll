@@ -39,6 +39,12 @@ const pesertaGabung = new Map();
 let papanTerakhir = null;
 let pertanyaanTerakhir = null;
 let modeTampilan = "hasil"; // "hasil" | "leaderboard"
+let timerLeaderboardOtomatis = null; // jeda 3 detik sebelum leaderboard tampil sendiri setelah soal ditutup
+
+function batalkanLeaderboardOtomatis() {
+  clearTimeout(timerLeaderboardOtomatis);
+  timerLeaderboardOtomatis = null;
+}
 
 // Hasil sengaja ditahan dulu supaya layar tidak menampilkan grafik dari satu
 // dua suara pertama — itu bikin audiens ikut-ikutan dan hasilnya bias.
@@ -171,6 +177,7 @@ let intervalHitungMundur = null;
     opsi jawaban baru muncul setelah server benar-benar membuka soal. */
 function gambarHitungMundur(pertanyaan, detik) {
   clearInterval(intervalHitungMundur);
+  batalkanLeaderboardOtomatis();
   idPertanyaanTampil = null;
   tipeTampil = null;
   timer.sembunyikan();
@@ -229,6 +236,7 @@ function mulaiAnimasiHitungMundur(detik) {
 /* ------------------------------------------------------------- Lobi ----- */
 
 function gambarLobi() {
+  batalkanLeaderboardOtomatis();
   idPertanyaanTampil = null;
   tipeTampil = null;
   timer.sembunyikan();
@@ -281,9 +289,10 @@ function bukaZoomQr() {
 function tambahBubblePeserta(wadah, pid, nickname) {
   if (wadah.querySelector(`[data-pid="${pid}"]`)) return;
   const el = document.createElement("span");
-  // Gantian 4 warna kategori berdasarkan id partisipan, supaya tiap nama
-  // konsisten warnanya sendiri (tidak berubah-ubah tiap render ulang).
-  el.className = `chip peserta-chip warna-${(pid % 4) + 1}`;
+  // Gantian 4 warna + 3 ukuran berdasarkan id partisipan, supaya tiap nama
+  // konsisten warna/ukurannya sendiri (tidak berubah-ubah tiap render ulang)
+  // tapi lobi terasa hidup — bukan barisan pil seragam.
+  el.className = `chip peserta-chip warna-${(pid % 4) + 1} ukuran-${(pid % 3) + 1}`;
   el.dataset.pid = String(pid);
   el.textContent = nickname;
   wadah.appendChild(el);
@@ -309,6 +318,7 @@ function tambahPesertaLobi(pid, nickname) {
 
 /** Layar penutup: sesi sudah berakhir — podium untuk quiz, ucapan terima kasih untuk survey. */
 function gambarSesiSelesai(sesi, leaderboard) {
+  batalkanLeaderboardOtomatis();
   idPertanyaanTampil = null;
   tipeTampil = null;
   timer.sembunyikan();
@@ -797,6 +807,7 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
   // ikut ditutup lagi walau kerangka di layar tidak berubah — leaderboard
   // soal sebelumnya juga tidak relevan lagi sampai soal ini ditutup.
   if (baruDibuka) {
+    batalkanLeaderboardOtomatis();
     hasilTerbuka = false;
     modeTampilan = "hasil";
     const tombolPapan = $("#btn-papan");
@@ -883,6 +894,11 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
         terapkanPertanyaan(pesan.pertanyaan, pesan.hasil, null);
         catatPapan(pesan.leaderboard);
         toast(pesan.alasan === "timer" ? "Waktu habis — soal ditutup" : "Soal ditutup");
+        // Grafik hasil tampil dulu, lalu leaderboard muncul sendiri 3 detik
+        // kemudian — presenter tetap bisa buka manual lebih cepat, atau
+        // batal otomatis kalau keburu pindah soal.
+        batalkanLeaderboardOtomatis();
+        if (KUIS) timerLeaderboardOtomatis = setTimeout(bukaLeaderboard, 3000);
         break;
       case "sesi_selesai":
         // Sesi benar-benar berakhir — selalu tampilkan layar penutup,
@@ -948,25 +964,36 @@ $("#btn-reject-semua").addEventListener("click", async () => {
 });
 
 const btnPapan = $("#btn-papan");
+
+/** Balik dari leaderboard ke grafik hasil soal terakhir (dipanggil dari tombol). */
+function tutupLeaderboard() {
+  batalkanLeaderboardOtomatis();
+  modeTampilan = "hasil";
+  if (btnPapan) btnPapan.textContent = "Lihat Leaderboard →";
+  if (pertanyaanTerakhir) {
+    gambarKerangka(pertanyaanTerakhir).then(() => {
+      terapkanHasil(hasilTerakhir);
+      if (pertanyaanTerakhir.tipe === "word_cloud") gambarModerasi({ antrian: [], jumlah: 0 });
+    });
+    // Timer/#btn-tutup ikut disegarkan — soal bisa saja sudah tertutup
+    // (timer habis atau presenter menutupnya) selagi leaderboard terbuka.
+    sinkronkanKontrolSoal(pertanyaanTerakhir);
+  }
+}
+
+/** Tampilkan panel leaderboard penuh — dipanggil dari tombol ATAU otomatis 3 detik setelah hasil. */
+function bukaLeaderboard() {
+  batalkanLeaderboardOtomatis();
+  if (modeTampilan === "leaderboard" || !papanTerakhir) return;
+  modeTampilan = "leaderboard";
+  if (btnPapan) btnPapan.textContent = "← Kembali ke Hasil";
+  gambarPapanUtama(papanTerakhir);
+}
+
 if (btnPapan) {
   btnPapan.addEventListener("click", () => {
-    if (modeTampilan === "leaderboard") {
-      modeTampilan = "hasil";
-      btnPapan.textContent = "Lihat Leaderboard →";
-      if (pertanyaanTerakhir) {
-        gambarKerangka(pertanyaanTerakhir).then(() => {
-          terapkanHasil(hasilTerakhir);
-          if (pertanyaanTerakhir.tipe === "word_cloud") gambarModerasi({ antrian: [], jumlah: 0 });
-        });
-        // Timer/#btn-tutup ikut disegarkan — soal bisa saja sudah tertutup
-        // (timer habis atau presenter menutupnya) selagi leaderboard terbuka.
-        sinkronkanKontrolSoal(pertanyaanTerakhir);
-      }
-    } else {
-      modeTampilan = "leaderboard";
-      btnPapan.textContent = "← Kembali ke Hasil";
-      gambarPapanUtama(papanTerakhir);
-    }
+    if (modeTampilan === "leaderboard") tutupLeaderboard();
+    else bukaLeaderboard();
   });
 }
 
