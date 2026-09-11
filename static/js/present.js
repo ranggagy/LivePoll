@@ -114,6 +114,43 @@ function sesuaikanUkuranPanggung() {
   isi.style.overflowY = dibutuhkan * skala > tersedia ? "auto" : "hidden";
 }
 
+/**
+ * Ukuran baris leaderboard (panel utama, bukan sidebar) proporsional
+ * terhadap ruang yang tersedia DIBAGI jumlah peserta — 5 orang tampil besar
+ * memenuhi layar, 50 orang otomatis lebih ringkas — bukan ukuran tetap yang
+ * kelihatan kecil sendirian di layar proyektor besar atau kepotong kalau
+ * pesertanya banyak.
+ */
+function skalakanPapanUtama() {
+  const wadah = $("#papan-utama-isi");
+  if (!wadah) return;
+
+  if (!document.fullscreenElement) {
+    wadah.style.removeProperty("--tinggi-baris");
+    return;
+  }
+
+  const jumlahBaris = $$(".papan-baris", wadah).length;
+  if (!jumlahBaris) return;
+
+  const kontrol = $("#kontrol");
+  const paddingBawahWadah = parseFloat(getComputedStyle(akar).paddingBottom || "0");
+  const atas = wadah.getBoundingClientRect().top;
+  let cadanganBawah = paddingBawahWadah + 8;
+  if (kontrol) {
+    const gaya = getComputedStyle(kontrol);
+    cadanganBawah += kontrol.offsetHeight + parseFloat(gaya.marginTop || "0");
+  }
+  const tersedia = Math.max(160, window.innerHeight - atas - cadanganBawah);
+  const tinggiBaris = Math.min(150, Math.max(48, tersedia / jumlahBaris));
+  wadah.style.setProperty("--tinggi-baris", `${tinggiBaris}px`);
+}
+
+// skalakanPapanUtama harus jalan LEBIH DULU: dia menentukan ukuran baris
+// leaderboard, baru sesuaikanUkuranPanggung mengukur apakah hasilnya masih
+// kepanjangan dan perlu di-scale-down lagi.
+document.addEventListener("fullscreenchange", skalakanPapanUtama);
+window.addEventListener("resize", skalakanPapanUtama);
 document.addEventListener("fullscreenchange", sesuaikanUkuranPanggung);
 window.addEventListener("resize", sesuaikanUkuranPanggung);
 // Google Font (Plus Jakarta Sans, display=swap) sering baru selesai dimuat
@@ -560,6 +597,7 @@ function isiPapanUtama(papan) {
   if (!wadah || !papan) return;
   if (!papan.baris.length) {
     wadah.innerHTML = '<div class="kosong">Belum ada skor</div>';
+    skalakanPapanUtama();
     sesuaikanUkuranPanggung();
     return;
   }
@@ -589,6 +627,7 @@ function isiPapanUtama(papan) {
     if (!urut.includes(el)) el.remove();
   });
   mainkanFlip(urut, sebelum);
+  skalakanPapanUtama();
   sesuaikanUkuranPanggung();
 }
 

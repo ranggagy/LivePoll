@@ -934,21 +934,22 @@ textarea.input:focus {
   padding-inline: 10px;
 }
 
-/* Varian panel utama presenter (leaderboard full-screen, bukan sidebar). */
+/* Varian panel utama presenter (leaderboard full-screen, bukan sidebar).
+   --tinggi-baris di-set dari JS (present.js: skalakanPapanUtama) sebagai
+   ruang tersedia dibagi jumlah baris, jadi ukurannya proporsional: sedikit
+   peserta = baris besar mengisi layar, banyak peserta = otomatis mengecil. */
 .papan-baris.besar {
-  gap: 20px;
-  padding: 18px 4px;
+  gap: clamp(10px, calc(var(--tinggi-baris, 70px) * 0.16), 28px);
+  padding-block: clamp(8px, calc(var(--tinggi-baris, 70px) * 0.18), 26px);
 }
 .papan-baris.besar .papan-peringkat {
-  width: 40px;
-  height: 40px;
-  font-size: 18px;
+  width: clamp(32px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
+  height: clamp(32px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
+  font-size: clamp(14px, calc(var(--tinggi-baris, 70px) * 0.22), 26px);
 }
-.papan-baris.besar .papan-nama {
-  font-size: 19px;
-}
+.papan-baris.besar .papan-nama,
 .papan-baris.besar .papan-poin {
-  font-size: 19px;
+  font-size: clamp(15px, calc(var(--tinggi-baris, 70px) * 0.27), 32px);
 }
 
 .kembang-api-overlay {

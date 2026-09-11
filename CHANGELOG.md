@@ -13,6 +13,31 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Baris leaderboard panel utama proporsional terhadap layar
+
+Sebelumnya `.papan-baris.besar` (leaderboard "Lihat Leaderboard →" di
+presenter, panel utama bukan sidebar) pakai ukuran tetap (lingkaran 40px,
+font 18-19px) — kelihatan kecil sendirian kalau pesertanya cuma 3-5 orang
+di layar proyektor besar, padahal ruangnya banyak tersisa.
+
+**Perbaikan**: `skalakanPapanUtama()` baru di
+[present.js](static/js/present.js), dipanggil tiap render/resize/toggle
+fullscreen (sebelum `sesuaikanUkuranPanggung()`, urutan pendaftaran
+listener sengaja diatur begitu). Menghitung tinggi baris ideal = (tinggi
+layar tersisa di bawah kartu) ÷ (jumlah peserta), di-clamp 48-150px, disimpan
+sebagai custom property `--tinggi-baris` di `#papan-utama-isi`. CSS
+`.papan-baris.besar` (lingkaran, gap, padding, font nama/poin) di
+[app.css](static/css/app.css) semuanya `calc()` dari variabel itu, jadi:
+sedikit peserta → baris besar mengisi layar; banyak peserta → mengecil
+otomatis sampai batas minimum, lalu `sesuaikanUkuranPanggung()` (scale-down
+keseluruhan) jadi jaring pengaman kalau minimum itu masih kepanjangan.
+Hanya aktif saat Layar Penuh (custom property di-reset di luar itu).
+
+Diverifikasi: 3 peserta → font 19px→28.7px, lingkaran 40px→53px. 25 peserta
+(leaderboard dipotong ke top-12) → tinggi baris jatuh ke batas minimum 48px,
+lalu jaring pengaman ikut men-scale 0.6x — semua 12 baris tetap muat tanpa
+scroll/potong.
+
 ## 2026-09-11 — Bug asli overflow horizontal di Layar Penuh ketemu & diperbaiki
 
 Perbaikan sebelumnya (`document.fonts.ready`) ternyata cuma menutupi gejala,
