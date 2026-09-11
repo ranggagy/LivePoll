@@ -13,6 +13,85 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — 10 bug dari code review diperbaiki (skor dobel, race condition, tampilan)
+
+Hasil code review menyeluruh (8 sudut pandang: backend, frontend, kontrak
+backend↔frontend, tampilan, reuse, simplifikasi, efisiensi, root-cause). Semua
+diverifikasi ulang manual + lolos `uji_alur.py`/`uji_edge_case.py`.
+
+**Bug skor/data (paling kritis):**
+
+- **Reaktivasi soal yang sudah dinilai dobel-hitung poin** — klik "Aktifkan"
+  pada soal yang sudah pernah selesai (mis. tombolnya memang tidak pernah
+  disable untuk soal lama) menghapus jawaban lama tapi tidak pernah membalik
+  poin yang sudah ditambahkan ke `poin_total`/`total_poin`, jadi menjawab
+  ulang MENUMPUK poin baru di atas yang lama. Sekarang `aktifkan()` di
+  [runtime.py](app/realtime/runtime.py) membalikkan dulu poin lama sebelum
+  soal dibuka ulang.
+- **Jawaban telat (delay jaringan) bisa nyasar ke aktivasi baru** — `StatePertanyaan`
+  sekarang punya nomor `generasi` (naik tiap aktivasi, termasuk soal yang
+  SAMA), dikirim ke klien dan diminta balik di setiap jawaban
+  (`static/js/play.js`). Jawaban yang generasinya tidak cocok lagi ditolak
+  ("Soal sudah berganti") alih-alih diam-diam kena skor ke soal yang sudah
+  beda aktivasi.
+- **Soal yang batal SAAT countdown (diganti sebelum benar-benar terbuka)
+  dulu ditandai "selesai"** padahal `dibuka_at` masih kosong — mencemari
+  data (tidak ada yang mungkin sempat menjawab). Sekarang dikembalikan ke
+  status draft.
+- **`ambil_sesi` di [api_admin.py](app/routers/api_admin.py) mengurutkan
+  status TERBALIK** — `Sesi.status.desc()` menaruh sesi `"selesai"` sebelum
+  `"aktif"` (leksikografis, bukan makna), jadi kalau kode sesi lama yang
+  sudah berakhir dipakai ulang oleh sesi baru, `detail_sesi`/`hapus_sesi`/
+  `reset_sesi` bisa salah mengenai sesi yang sudah mati. Diganti
+  `(Sesi.status == STATUS_SESI_AKTIF).desc()`.
+- **Edit soal ("Ubah") yang sedang aktif/sudah dijawab bisa merusak hasil**
+  — opsi lama dihapus-lalu-dibuat-ulang dengan id baru, jawaban lama jadi
+  menunjuk ke id opsi yang sudah tidak ada (hilang diam-diam dari export).
+  Sekarang: (1) tombol "Ubah" di-disable untuk soal yang sedang aktif, sama
+  seperti "Hapus"; (2) opsi yang tetap ada di posisi yang sama diperbarui DI
+  TEMPAT (bukan hapus-buat-ulang), jadi id-nya tidak berubah untuk edit
+  biasa (perbaiki teks/tandai jawaban benar).
+- **Approve/reject Word Cloud race dengan pindah soal** — `moderasi()`/
+  `moderasi_semua()` baca-tulis `self.aktif` tanpa lock yang sama dipakai
+  `aktifkan()`/`tutup()`, jadi presenter yang moderasi nyaris bersamaan
+  dengan pindah soal bisa membuat UPDATE database menimpa jawaban milik soal
+  yang sudah berbeda. Sekarang dikunci dengan `_gembok` yang sama.
+- **Word Cloud dengan `teks` bukan string bikin partisipan itu terputus** —
+  `.strip()` dipanggil tanpa cek tipe dulu (beda dari cabang MC/Rating yang
+  sudah ada try/except). Sekarang divalidasi dulu.
+
+**Bug tampilan:**
+
+- **Timer & tombol "Tutup Soal" macet kalau presenter buka Leaderboard**
+  saat soal masih berjalan — `if (modeTampilan === "leaderboard") return;`
+  di [present.js](static/js/present.js) skip kode sinkronisasi timer/tombol
+  di bawahnya. Sekarang timer/tombol selalu ikut kondisi soal sebenarnya
+  lewat fungsi `sinkronkanKontrolSoal()`, terlepas dari layar mana yang
+  sedang ditampilkan.
+- **Opsi jawaban ke-5 (Quiz Mode) pakai warna sama dengan "Jawaban Benar"**
+  — `.opt-e` pakai `var(--benar)`, warna yang PANDUAN_WARNA.md khususkan
+  untuk penanda jawaban benar, jadi bisa menyesatkan peserta SAAT VOTING
+  (sebelum jawaban dibuka). Desain warna memang cuma untuk 4 kategori —
+  sekarang Quiz Mode dibatasi maksimal 4 pilihan jawaban (validasi di
+  server + tombol "+ Tambah Opsi" di kelola.js).
+- **Fokus input & highlight baris aktif masih pakai hijau lime dari palet
+  lama** (`rgba(198,241,53,...)`, tidak ada lagi di `:root` manapun sejak
+  redesign) — diganti `--utama` (Biru Crate), konsisten dengan tombol CTA.
+- **Layar "Sesi Berakhir" tampil judul kosong** kalau presenter masih
+  terkoneksi live saat sesi diakhiri — broadcast `sesi_selesai` yang live
+  tidak pernah menyertakan field `"sesi"` (cuma jalur reconnect yang
+  menyertakannya). Sekarang disertakan di semua broadcast.
+- **Opsi jawaban/podium bisa terpotong tanpa scroll di Layar Penuh** — Google
+  Font (`display=swap`) kadang baru selesai dimuat SETELAH
+  `sesuaikanUkuranPanggung()` pertama kali mengukur tinggi konten; teks
+  membesar/reflow tapi `overflowY` sudah kadung dikunci "hidden" dari
+  pengukuran lama, jadi kelebihan tinggi diam-diam hilang (bukan discale
+  ulang). Diperbaiki dengan mengukur ulang begitu `document.fonts.ready`.
+  Podium+tabel peringkat 4-10 (layar "Kuis Telah Berakhir") juga disusun
+  dua kolom (podium kiri, tabel kanan) khusus di Layar Penuh
+  (`:fullscreen #podium-wadah`), supaya lebar layar dipakai alih-alih
+  tinggi — jauh lebih mungkin muat tanpa perlu di-scale-turun.
+
 ## 2026-09-11 — Simulasi acara nyata 300 peserta / 5 soal lolos di Render
 
 Skrip baru [tools/uji_simulasi_acara.py](tools/uji_simulasi_acara.py): satu

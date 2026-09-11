@@ -99,7 +99,11 @@ class ManajerRuntime:
                 q = next((x for x in sesi.daftar_pertanyaan if x.id == sesi.pertanyaan_aktif_id), None)
                 if q is not None:
                     urutan_ke = urut.index(q.id) + 1
-                    state = StatePertanyaan(q, urutan_ke, len(urut), bertimer=sesi.mode == MODE_QUIZ)
+                    runtime._generasi_aktif += 1
+                    state = StatePertanyaan(
+                        q, urutan_ke, len(urut), bertimer=sesi.mode == MODE_QUIZ,
+                        generasi=runtime._generasi_aktif,
+                    )
                     jawaban = (
                         (await db.execute(select(Jawaban).where(Jawaban.question_id == q.id))).scalars().all()
                     )

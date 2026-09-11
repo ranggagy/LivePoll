@@ -44,7 +44,12 @@ async def ambil_sesi(db: AsyncSession, kode: str, hanya_aktif: bool = False) -> 
         select(Sesi)
         .where(Sesi.kode_sesi == kode)
         .options(selectinload(Sesi.daftar_pertanyaan).selectinload(Pertanyaan.daftar_opsi))
-        .order_by(Sesi.status.desc(), Sesi.created_at.desc())
+        # Sengaja BUKAN Sesi.status.desc(): status berupa string "aktif"/"selesai",
+        # dan "selesai" > "aktif" secara leksikografis, jadi .desc() String itu
+        # justru menaruh sesi yang SUDAH SELESAI lebih dulu — kebalikan dari
+        # niat "utamakan yang masih aktif". Bandingkan ke STATUS_SESI_AKTIF
+        # supaya urutannya benar terlepas dari nilai string statusnya.
+        .order_by((Sesi.status == STATUS_SESI_AKTIF).desc(), Sesi.created_at.desc())
     )
     if hanya_aktif:
         kueri = kueri.where(Sesi.status == STATUS_SESI_AKTIF)
@@ -253,6 +258,8 @@ async def ubah_pertanyaan(qid: int, payload: PertanyaanIn, db: AsyncSession = De
     if q is None:
         raise HTTPException(404, "Pertanyaan tidak ditemukan")
     sesi = await db.get(Sesi, q.session_id)
+    if sesi is not None and sesi.pertanyaan_aktif_id == q.id:
+        raise HTTPException(400, "Tutup dulu soal ini sebelum mengubahnya")
     _validasi_pertanyaan(sesi, payload)
 
     q.tipe = payload.tipe
@@ -260,10 +267,26 @@ async def ubah_pertanyaan(qid: int, payload: PertanyaanIn, db: AsyncSession = De
     q.gambar = payload.gambar
     q.durasi_detik = payload.durasi_detik
     q.rating_maks = payload.rating_maks
-    await db.execute(delete(Opsi).where(Opsi.question_id == q.id))
+
+    # Perbarui opsi yang sudah ada DI TEMPAT (cocokkan berdasarkan posisi)
+    # alih-alih hapus-semua-lalu-buat-ulang — supaya id opsi yang tidak
+    # berubah tetap sama, dan Jawaban.option_id milik jawaban lama (soal ini
+    # sudah pernah ditutup & dijawab) tidak jadi nyasar ke id baru yang tak
+    # pernah ada saat orang menjawab.
+    lama = list(q.daftar_opsi)
     if payload.tipe == TIPE_MC:
         for i, o in enumerate(payload.opsi):
-            db.add(Opsi(question_id=q.id, teks=o.teks.strip(), is_benar=bool(o.is_benar), urutan=i))
+            if i < len(lama):
+                lama[i].teks = o.teks.strip()
+                lama[i].is_benar = bool(o.is_benar)
+                lama[i].urutan = i
+            else:
+                db.add(Opsi(question_id=q.id, teks=o.teks.strip(), is_benar=bool(o.is_benar), urutan=i))
+        for surplus in lama[len(payload.opsi):]:
+            await db.delete(surplus)
+    else:
+        for opsi_lama in lama:
+            await db.delete(opsi_lama)
     await db.commit()
     await db.refresh(q, ["daftar_opsi"])
     return rangkum_pertanyaan(q)
@@ -308,6 +331,12 @@ def _validasi_pertanyaan(sesi: Sesi | None, payload: PertanyaanIn) -> None:
             raise HTTPException(400, "Multiple Choice butuh minimal 2 pilihan jawaban")
         if sesi is not None and sesi.mode == MODE_QUIZ and not any(o.is_benar for o in opsi_bersih):
             raise HTTPException(400, "Quiz Mode butuh tepat satu jawaban benar")
+        # Kartu jawaban Quiz Mode dirancang untuk PERSIS 4 warna kategori
+        # (PANDUAN_WARNA.md) — opsi ke-5/6 (opt-e/opt-f) tidak didokumentasikan
+        # di sana dan opt-e kebetulan memakai warna biru yang sama dengan
+        # penanda "Jawaban Benar", jadi bisa menyesatkan peserta saat voting.
+        if sesi is not None and sesi.mode == MODE_QUIZ and len(opsi_bersih) > 4:
+            raise HTTPException(400, "Quiz Mode maksimal 4 pilihan jawaban")
         payload.opsi = opsi_bersih
     if payload.gambar and not payload.gambar.startswith("data:image/"):
         raise HTTPException(400, "Format gambar tidak valid")

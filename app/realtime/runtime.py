@@ -21,6 +21,7 @@ from ..models import (
     MOD_REJECTED,
     MODE_QUIZ,
     STATUS_Q_BERJALAN,
+    STATUS_Q_DRAFT,
     STATUS_Q_SELESAI,
     STATUS_SESI_SELESAI,
     TIPE_MC,
@@ -90,8 +91,17 @@ def _insert_upsert():
 class StatePertanyaan:
     """Agregat jawaban untuk satu pertanyaan yang sedang/pernah berjalan."""
 
-    def __init__(self, q: Pertanyaan, urutan_ke: int, total_soal: int, bertimer: bool = False) -> None:
+    def __init__(
+        self, q: Pertanyaan, urutan_ke: int, total_soal: int, bertimer: bool = False, generasi: int = 0
+    ) -> None:
         self.id = q.id
+        # Nomor generasi aktivasi ini (naik tiap kali soal — termasuk soal yang
+        # SAMA — diaktifkan). Dikirim ke klien dan diminta balik di setiap
+        # jawaban, supaya jawaban yang telat sampai dari aktivasi LAMA (mis.
+        # soal ini ditutup lalu diaktifkan ulang sebelum pesan lambat itu
+        # tiba) tidak salah kena skor ke aktivasi yang baru — question_id saja
+        # tidak cukup karena soal yang sama = id yang sama juga.
+        self.generasi = generasi
         self.tipe = q.tipe
         self.teks = q.teks
         self.gambar = q.gambar
@@ -182,6 +192,7 @@ class StatePertanyaan:
         """Dikirim saat soal baru diaktifkan, sebelum opsi/timer sungguhan tampil."""
         return {
             "id": self.id,
+            "generasi": self.generasi,
             "tipe": self.tipe,
             "teks": self.teks,
             "gambar": self.gambar,
@@ -197,6 +208,7 @@ class StatePertanyaan:
         ]
         return {
             "id": self.id,
+            "generasi": self.generasi,
             "tipe": self.tipe,
             "teks": self.teks,
             "gambar": self.gambar,
@@ -439,12 +451,50 @@ class RuntimeSesi:
         """
         async with self._gembok:
             if self.aktif is not None and not self.aktif.ditutup:
-                await self._tutup_internal(siarkan=False)
+                if self.aktif.dibuka_epoch is None:
+                    # Soal sebelumnya masih di jendela countdown, belum benar-benar
+                    # terbuka — tidak ada yang mungkin sempat menjawab, jadi ini
+                    # BUKAN "soal selesai" (dulu tetap ditandai STATUS_Q_SELESAI di
+                    # sini walau dibuka_at masih NULL, mencemari data/analitik).
+                    # Kembalikan ke draft supaya bisa diaktifkan lagi seperti biasa.
+                    async with BuatSesiDB() as db:
+                        q_lama = await db.get(Pertanyaan, self.aktif.id)
+                        if q_lama is not None and q_lama.status == STATUS_Q_BERJALAN:
+                            q_lama.status = STATUS_Q_DRAFT
+                            await db.commit()
+                    self.aktif = None
+                else:
+                    await self._tutup_internal(siarkan=False)
 
             async with BuatSesiDB() as db:
                 q = await db.get(Pertanyaan, question_id)
                 if q is None or q.session_id != self.session_id:
                     return {"ok": False, "pesan": "Pertanyaan tidak ditemukan"}
+
+                # Soal ini mungkin sudah pernah dijalankan & dinilai sebelumnya
+                # (presenter mengaktifkan ulang dari Kelola Sesi) — batalkan dulu
+                # poin yang sudah diberikan, supaya menjawab ulang tidak menumpuk
+                # poin baru di atas yang lama (dulu poin_total/total_poin tidak
+                # pernah direset di sini, jadi reaktivasi bikin skor dobel).
+                if self.mode == MODE_QUIZ and q.status == STATUS_Q_SELESAI:
+                    jawaban_lama = (
+                        await db.execute(
+                            select(Jawaban.participant_id, Jawaban.poin).where(
+                                Jawaban.question_id == question_id
+                            )
+                        )
+                    ).all()
+                    kurangi: dict[int, int] = {}
+                    for pid, poin in jawaban_lama:
+                        if poin:
+                            kurangi[pid] = kurangi.get(pid, 0) + poin
+                    for pid, poin in kurangi.items():
+                        self.poin_total[pid] = self.poin_total.get(pid, 0) - poin
+                        await db.execute(
+                            update(Partisipan)
+                            .where(Partisipan.id == pid)
+                            .values(total_poin=Partisipan.total_poin - poin)
+                        )
 
                 semua = (
                     (
@@ -473,11 +523,11 @@ class RuntimeSesi:
                     sesi.pertanyaan_aktif_id = question_id
                 await db.commit()
                 await db.refresh(q, ["daftar_opsi"])
-                self.aktif = StatePertanyaan(
-                    q, urutan_ke, self.total_soal, bertimer=self.mode == MODE_QUIZ
-                )
                 self._generasi_aktif += 1
                 generasi = self._generasi_aktif
+                self.aktif = StatePertanyaan(
+                    q, urutan_ke, self.total_soal, bertimer=self.mode == MODE_QUIZ, generasi=generasi
+                )
 
             await hub.siarkan(
                 self.kode,
@@ -676,57 +726,75 @@ class RuntimeSesi:
         }
 
     async def moderasi(self, participant_id: int, aksi: str) -> bool:
-        if self.aktif is None or self.aktif.tipe != TIPE_WORD_CLOUD:
-            return False
-        ok = self.aktif.setujui_kata(participant_id) if aksi == "approve" else self.aktif.tolak_kata(participant_id)
-        if not ok:
-            return False
-        status = MOD_APPROVED if aksi == "approve" else MOD_REJECTED
-        async with BuatSesiDB() as db:
-            await db.execute(
-                update(Jawaban)
-                .where(Jawaban.question_id == self.aktif.id, Jawaban.participant_id == participant_id)
-                .values(status_moderasi=status)
+        # Dikunci sama seperti aktifkan()/tutup() — tanpa ini, presenter yang
+        # approve/reject nyaris bersamaan dengan pindah soal bisa membuat
+        # UPDATE ini menimpa Jawaban milik soal yang SUDAH BERBEDA (self.aktif
+        # sempat berganti persis di antara baca dan tulis di bawah).
+        async with self._gembok:
+            if self.aktif is None or self.aktif.tipe != TIPE_WORD_CLOUD:
+                return False
+            ok = (
+                self.aktif.setujui_kata(participant_id)
+                if aksi == "approve"
+                else self.aktif.tolak_kata(participant_id)
             )
-            await db.commit()
-        self.tandai_kotor()
-        self._moderasi_kotor = True
-        return True
-
-    async def moderasi_semua(self, aksi: str) -> int:
-        if self.aktif is None or self.aktif.tipe != TIPE_WORD_CLOUD:
-            return 0
-        daftar = list(self.aktif.pending.keys())
-        for pid in daftar:
-            if aksi == "approve":
-                self.aktif.setujui_kata(pid)
-            else:
-                self.aktif.tolak_kata(pid)
-        if daftar:
+            if not ok:
+                return False
             status = MOD_APPROVED if aksi == "approve" else MOD_REJECTED
             async with BuatSesiDB() as db:
                 await db.execute(
                     update(Jawaban)
-                    .where(Jawaban.question_id == self.aktif.id, Jawaban.participant_id.in_(daftar))
+                    .where(Jawaban.question_id == self.aktif.id, Jawaban.participant_id == participant_id)
                     .values(status_moderasi=status)
                 )
                 await db.commit()
             self.tandai_kotor()
             self._moderasi_kotor = True
-        return len(daftar)
+            return True
+
+    async def moderasi_semua(self, aksi: str) -> int:
+        async with self._gembok:
+            if self.aktif is None or self.aktif.tipe != TIPE_WORD_CLOUD:
+                return 0
+            daftar = list(self.aktif.pending.keys())
+            for pid in daftar:
+                if aksi == "approve":
+                    self.aktif.setujui_kata(pid)
+                else:
+                    self.aktif.tolak_kata(pid)
+            if daftar:
+                status = MOD_APPROVED if aksi == "approve" else MOD_REJECTED
+                async with BuatSesiDB() as db:
+                    await db.execute(
+                        update(Jawaban)
+                        .where(Jawaban.question_id == self.aktif.id, Jawaban.participant_id.in_(daftar))
+                        .values(status_moderasi=status)
+                    )
+                    await db.commit()
+                self.tandai_kotor()
+                self._moderasi_kotor = True
+            return len(daftar)
 
     async def akhiri_sesi(self) -> None:
         if self.aktif is not None and not self.aktif.ditutup:
             await self.tutup(alasan="sesi_berakhir")
         self.status = STATUS_SESI_SELESAI
 
+        # "sesi" disertakan supaya layar akhir bisa menampilkan judul sesi —
+        # dulu cuma dikirim di jalur reconnect (_ringkasan_selesai di ws.py),
+        # jadi presenter yang masih terkoneksi live saat sesi diakhiri melihat
+        # judul kosong, baru muncul kalau dia refresh.
+        ringkas_sesi = {"kode": self.kode, "judul": self.judul, "mode": self.mode}
+
         if self.mode != MODE_QUIZ:
-            await hub.siarkan(self.kode, {"tipe": "sesi_selesai", "leaderboard": None})
+            await hub.siarkan(self.kode, {"tipe": "sesi_selesai", "sesi": ringkas_sesi, "leaderboard": None})
             return
 
         # Presenter (layar besar) melihat podium generik top-10.
         await hub.siarkan(
-            self.kode, {"tipe": "sesi_selesai", "leaderboard": self.payload_podium()}, peran=PERAN_PRESENTER
+            self.kode,
+            {"tipe": "sesi_selesai", "sesi": ringkas_sesi, "leaderboard": self.payload_podium()},
+            peran=PERAN_PRESENTER,
         )
         # Tiap partisipan melihat podium yang sama, tapi tabelnya digeser
         # supaya peringkatnya sendiri selalu ikut tampil.
@@ -734,7 +802,11 @@ class RuntimeSesi:
             if koneksi.peran != PERAN_PARTISIPAN or koneksi.participant_id is None:
                 continue
             await koneksi.kirim(
-                {"tipe": "sesi_selesai", "leaderboard": self.payload_podium(koneksi.participant_id)}
+                {
+                    "tipe": "sesi_selesai",
+                    "sesi": ringkas_sesi,
+                    "leaderboard": self.payload_podium(koneksi.participant_id),
+                }
             )
 
     # -- operasi partisipan ------------------------------------------------
@@ -751,6 +823,14 @@ class RuntimeSesi:
         if state.dibuka_epoch is None:
             return {"ok": False, "pesan": "Soal belum dimulai"}
         if muatan.get("question_id") not in (None, state.id):
+            return {"ok": False, "pesan": "Soal sudah berganti"}
+        # question_id saja tidak cukup: soal yang sama bisa ditutup lalu
+        # diaktifkan ulang (aktivasi baru, generasi baru) sebelum jawaban yang
+        # telat sampai (delay jaringan) diproses server — tanpa cek ini,
+        # jawaban itu salah kena skor ke aktivasi yang baru. Klien lama yang
+        # belum kirim "generasi" tetap diterima (lenient) demi kompatibilitas.
+        generasi_diminta = muatan.get("generasi")
+        if generasi_diminta is not None and generasi_diminta != state.generasi:
             return {"ok": False, "pesan": "Soal sudah berganti"}
         if state.ditutup:
             return {"ok": False, "pesan": "Waktu sudah habis"}
@@ -789,7 +869,10 @@ class RuntimeSesi:
                     cocok["is_benar"], data["waktu_jawab_ms"], state.durasi, state.poin_maksimal
                 )
         elif state.tipe == TIPE_WORD_CLOUD:
-            teks = (muatan.get("teks") or "").strip()
+            mentah = muatan.get("teks")
+            if mentah is not None and not isinstance(mentah, str):
+                return {"ok": False, "pesan": "Jawaban tidak valid"}
+            teks = (mentah or "").strip()
             if not teks:
                 return {"ok": False, "pesan": "Jawaban tidak boleh kosong"}
             data["teks"] = teks[:60]

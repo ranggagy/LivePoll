@@ -397,7 +397,10 @@ textarea.input:focus {
   outline: none;
   border-color: var(--ink);
   background: var(--putih);
-  box-shadow: 0 0 0 4px rgba(198, 241, 53, 0.35);
+  /* Dulu rgba(198,241,53) — hijau lime sisa palet lama sebelum redesign,
+     tidak ada di :root manapun lagi. Diganti --utama (Biru Crate), warna
+     aksi utama yang sekarang dipakai konsisten di seluruh tombol CTA. */
+  box-shadow: 0 0 0 4px rgba(41, 3, 112, 0.28);
 }
 .input-kode {
   text-align: center;
@@ -1035,6 +1038,27 @@ textarea.input:focus {
   margin: 0 auto;
   text-align: left;
 }
+/* Layar Penuh presenter: podium & tabel peringkat 4-10 ditumpuk vertikal
+   secara default, yang gampang kepotong di viewport pendek (banyak nama =
+   tabel tinggi). Di Layar Penuh, susun berdampingan (podium kiri, tabel
+   kanan) supaya lebar layar dipakai alih-alih tinggi — peringkat 4 s.d. 10
+   jauh lebih mungkin muat tanpa perlu discale-turun. :fullscreen otomatis
+   cuma aktif di halaman presenter (cuma di sana requestFullscreen dipanggil,
+   lihat static/js/present.js) jadi tidak memengaruhi layar HP partisipan. */
+:fullscreen #podium-wadah {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  align-items: center;
+  gap: 32px;
+  text-align: left;
+}
+:fullscreen #podium-wadah .podium {
+  margin: 0;
+}
+:fullscreen #podium-wadah .papan-lanjutan {
+  max-width: none;
+  margin: 0;
+}
 .papan-lompat {
   text-align: center;
   color: var(--muted);
@@ -1277,7 +1301,8 @@ textarea.input:focus {
   border-bottom: none;
 }
 .daftar-baris.berjalan {
-  background: linear-gradient(90deg, rgba(198, 241, 53, 0.22), transparent 70%);
+  /* Dulu rgba(198,241,53) — hijau lime sisa palet lama, diganti --utama. */
+  background: linear-gradient(90deg, rgba(41, 3, 112, 0.14), transparent 70%);
   border-radius: var(--r-sm);
   padding-inline: 12px;
 }

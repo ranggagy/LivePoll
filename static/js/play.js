@@ -33,6 +33,11 @@ const timer = new CincinTimer($("#timer"));
 let kunciTampilan = null; // penanda tampilan yang sedang dirender
 let terkunci = false; // true setelah partisipan menjawab
 let idSoal = null;
+// Nomor generasi aktivasi soal saat ini — dikirim balik di setiap jawaban
+// supaya server bisa menolak jawaban yang telat sampai dari aktivasi LAMA
+// soal yang sama (mis. soal ditutup lalu diaktifkan ulang sebelum jawaban
+// yang delay di jaringan sempat diproses server).
+let generasiSoal = null;
 
 /** Render satu tampilan; balikan Promise elemen baru, atau null bila tidak berubah. */
 function tampilkan(kunci, render) {
@@ -117,6 +122,7 @@ function mulaiAnimasiHitungMundur(detik) {
 
 function gambarPertanyaan(pertanyaan, sudahMenjawab, jawabanSaya) {
   idSoal = pertanyaan.id;
+  generasiSoal = pertanyaan.generasi ?? null;
   terkunci = !!sudahMenjawab;
   const kunci = `soal:${pertanyaan.id}`;
   const menunggu = tampilkan(kunci, (el) => {
@@ -210,7 +216,7 @@ function pasangWordCloud(pertanyaan, area) {
     }
     $("#btn-kirim").disabled = true;
     $("#teks-jawab").disabled = true;
-    soket.kirim({ tipe: "jawab", question_id: idSoal, teks });
+    soket.kirim({ tipe: "jawab", question_id: idSoal, generasi: generasiSoal, teks });
   };
   $("#btn-kirim").addEventListener("click", kirim);
   $("#teks-jawab").addEventListener("keydown", (e) => {
@@ -230,7 +236,7 @@ function pilihOpsi(tombol, optionId) {
     else t.classList.add("redup");
   });
   $("#status-jawab").textContent = "Jawaban terkirim, menunggu hasil…";
-  soket.kirim({ tipe: "jawab", question_id: idSoal, option_id: optionId });
+  soket.kirim({ tipe: "jawab", question_id: idSoal, generasi: generasiSoal, option_id: optionId });
 }
 
 function pilihRating(tombol, nilai) {
@@ -242,7 +248,7 @@ function pilihRating(tombol, nilai) {
     else t.classList.add("redup");
   });
   $("#status-jawab").textContent = "Jawaban terkirim, menunggu hasil…";
-  soket.kirim({ tipe: "jawab", question_id: idSoal, nilai });
+  soket.kirim({ tipe: "jawab", question_id: idSoal, generasi: generasiSoal, nilai });
 }
 
 function tandaiTerkunci(jawabanSaya) {
@@ -437,6 +443,7 @@ const soket = new KlienSoket(`/ws/play/${KODE}?token=${encodeURIComponent(tersim
         } else if (pesan.pertanyaan.ditutup) {
           // Reconnect setelah soal ditutup: tampilkan hasil terakhir.
           idSoal = pesan.pertanyaan.id;
+          generasiSoal = pesan.pertanyaan.generasi ?? null;
           if (MODE === "quiz") gambarHasilKuis(pesan.pribadi, pesan.leaderboard);
           else gambarHasilSurvey(pesan.pertanyaan, pesan.hasil);
         } else {

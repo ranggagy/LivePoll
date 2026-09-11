@@ -116,6 +116,15 @@ function sesuaikanUkuranPanggung() {
 
 document.addEventListener("fullscreenchange", sesuaikanUkuranPanggung);
 window.addEventListener("resize", sesuaikanUkuranPanggung);
+// Google Font (Plus Jakarta Sans, display=swap) sering baru selesai dimuat
+// SETELAH render pertama — teks jadi berganti metrik (lebar/tinggi) dan bisa
+// tumbuh lebih tinggi dari yang terukur saat sesuaikanUkuranPanggung() pertama
+// kali jalan. Tanpa ini, kelebihan tinggi itu diam-diam terpotong
+// (overflowY sudah kadung dikunci "hidden" dari pengukuran lama) — bukan
+// discale ulang seperti yang seharusnya.
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => sesuaikanUkuranPanggung());
+}
 
 /* -------------------------------------------------------- Hitung mundur - */
 
@@ -755,7 +764,16 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
       tombolPapan.disabled = true;
     }
   }
-  if (modeTampilan === "leaderboard") return; // presenter sedang melihat leaderboard, jangan timpa
+  if (modeTampilan === "leaderboard") {
+    // Presenter sedang melihat leaderboard — konten hasil ditahan (jangan
+    // ditimpa), tapi status tombol/timer TETAP harus ikut kondisi soal yang
+    // sebenarnya (dulu early return di sini bikin timer & #btn-tutup macet
+    // di kondisi lama selama leaderboard terbuka, termasuk saat soal ditutup
+    // sementara presenter sedang melihat leaderboard).
+    hasilTerakhir = hasil;
+    sinkronkanKontrolSoal(pertanyaan);
+    return;
+  }
   if (baruDibuka || pertanyaan.id !== idPertanyaanTampil || pertanyaan.tipe !== tipeTampil) {
     // Isi hasil tepat setelah kerangka terpasang, bukan setelah jeda tebakan.
     gambarKerangka(pertanyaan).then(() => {
@@ -768,6 +786,12 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
     if (pertanyaan.tipe === "word_cloud" && moderasi) gambarModerasi(moderasi);
   }
 
+  sinkronkanKontrolSoal(pertanyaan);
+}
+
+/** Timer & tombol "Tutup Soal" harus selalu mengikuti kondisi soal yang
+    sebenarnya, terlepas dari layar mana yang sedang ditampilkan presenter. */
+function sinkronkanKontrolSoal(pertanyaan) {
   $("#btn-tutup").disabled = !!pertanyaan.ditutup;
   if (MODE === "quiz" && !pertanyaan.ditutup && pertanyaan.sisa_ms != null) {
     timer.mulai(pertanyaan.sisa_ms, pertanyaan.durasi);
@@ -893,6 +917,9 @@ if (btnPapan) {
           terapkanHasil(hasilTerakhir);
           if (pertanyaanTerakhir.tipe === "word_cloud") gambarModerasi({ antrian: [], jumlah: 0 });
         });
+        // Timer/#btn-tutup ikut disegarkan — soal bisa saja sudah tertutup
+        // (timer habis atau presenter menutupnya) selagi leaderboard terbuka.
+        sinkronkanKontrolSoal(pertanyaanTerakhir);
       }
     } else {
       modeTampilan = "leaderboard";

@@ -77,7 +77,7 @@ function gambarDaftar() {
       <div class="daftar-aksi">
         <button class="btn btn-ikon btn-garis" data-aksi="naik" title="Naikkan urutan" ${i === 0 ? "disabled" : ""}>↑</button>
         <button class="btn btn-ikon btn-garis" data-aksi="turun" title="Turunkan urutan" ${i === sesi.pertanyaan.length - 1 ? "disabled" : ""}>↓</button>
-        <button class="btn btn-kecil btn-garis" data-aksi="ubah">Ubah</button>
+        <button class="btn btn-kecil btn-garis" data-aksi="ubah" ${q.id === sesi.pertanyaan_aktif_id ? "disabled title=\"Tutup dulu soal ini sebelum mengubahnya\"" : ""}>Ubah</button>
         <button class="btn btn-ikon btn-bahaya" data-aksi="hapus" title="Hapus">✕</button>
         <button class="btn btn-kecil ${q.id === sesi.pertanyaan_aktif_id ? "btn-utama" : ""}" data-aksi="aktifkan">
           ${q.id === sesi.pertanyaan_aktif_id ? "Aktif" : "Aktifkan"}
@@ -220,6 +220,13 @@ function setTipe(nilai) {
 
 $$("#pilih-tipe .pil").forEach((p) => p.addEventListener("click", () => setTipe(p.dataset.tipe)));
 $("#btn-tambah-opsi").addEventListener("click", () => {
+  // Kartu jawaban Quiz Mode dirancang untuk persis 4 warna kategori
+  // (PANDUAN_WARNA.md) — opsi ke-5 dst tidak punya warna kategori yang aman,
+  // salah satunya malah kebetulan sama dengan warna "Jawaban Benar".
+  if (sesi.mode === "quiz" && $$(".opsi-baris-form", $("#daftar-opsi")).length >= 4) {
+    toast("Quiz Mode maksimal 4 pilihan jawaban", "galat");
+    return;
+  }
   const el = barisOpsi();
   $("#daftar-opsi").appendChild(el);
   el.querySelector("input").focus();
