@@ -177,9 +177,20 @@ Setelah deploy selesai, jalankan uji end-to-end langsung ke server sungguhan:
 ```
 
 Ini menguji ketiga tipe pertanyaan, moderasi, keunikan nickname, timer server,
-skor kecepatan, reconnect, export Excel, plus 150 partisipan menjawab bersamaan
-— semuanya terhadap Postgres Neon, bukan SQLite. **Jalankan ini sekali sebelum
-hari-H**; kalau semua lulus, jalur Postgres sudah terbukti.
+skor kecepatan, reconnect, export Excel, plus uji beban partisipan menjawab
+bersamaan — semuanya terhadap Postgres Neon, bukan SQLite. **Jalankan ini sekali
+sebelum hari-H**; kalau semua lulus, jalur Postgres sudah terbukti.
+
+Jumlah partisipan pada uji beban bisa diatur lewat argumen kedua (default 150).
+Isi sesuai perkiraan peserta terbanyak di acaramu, misal 200:
+
+```bash
+.venv/Scripts/python.exe tools/uji_alur.py https://live-polling-xxxx.onrender.com 200
+```
+
+Ambang "ack di bawah N detik" otomatis dilonggarkan (2 → 5 detik) kalau yang
+diuji server jauh, supaya latensi jaringan tidak dilaporkan sebagai kegagalan
+aplikasi. Angka ack sesungguhnya tetap dicetak, jadi tetap bisa dinilai sendiri.
 
 Lalu isi event contoh:
 
@@ -301,8 +312,10 @@ Uji alur sengaja dibuat sebagai skrip mandiri (bukan pytest) supaya bisa dijalan
 terhadap URL Render sesungguhnya sebelum acara:
 
 ```bash
-.venv/Scripts/python.exe tools/uji_alur.py https://nama-app.onrender.com
+.venv/Scripts/python.exe tools/uji_alur.py https://nama-app.onrender.com 200
 ```
+
+Argumen kedua = jumlah partisipan pada uji beban (default 150).
 
 ---
 

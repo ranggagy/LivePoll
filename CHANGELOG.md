@@ -13,6 +13,23 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit & push)_
 
+## 2026-09-11 — Uji beban bisa diatur jumlah partisipannya
+
+`tools/uji_alur.py` sekarang menerima argumen kedua = jumlah partisipan pada
+uji beban (default 150):
+
+```bash
+.venv/Scripts/python.exe tools/uji_alur.py https://nama-app.onrender.com 200
+```
+
+Ambang "ack di bawah N detik" otomatis jadi 5 detik kalau targetnya server
+jauh (bukan localhost) — sebelumnya kaku 2 detik, yang berarti latensi
+jaringan ke Render bakal dilaporkan sebagai kegagalan aplikasi padahal bukan.
+Angka ack sebenarnya tetap dicetak.
+
+Sudah diverifikasi lokal dengan 200 partisipan: 200/200 jawaban di-ack dalam
+114 ms, broadcast ke presenter tetap ter-throttle jadi 1 update (bukan 200).
+
 ## 2026-09-11 — Tombol aksi tidak lagi merah
 
 Merah di tombol yang sering diklik terasa seperti peringatan, jadi semua

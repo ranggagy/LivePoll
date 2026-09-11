@@ -2,6 +2,9 @@
 
 Jalankan setelah server hidup:
     .venv/Scripts/python.exe tools/uji_alur.py http://127.0.0.1:8010
+
+Argumen kedua (opsional) mengatur jumlah partisipan pada uji beban:
+    .venv/Scripts/python.exe tools/uji_alur.py https://nama-app.onrender.com 200
 """
 
 import asyncio
@@ -13,6 +16,11 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 BASIS = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8010"
+JUMLAH_BEBAN = int(sys.argv[2]) if len(sys.argv) > 2 else 150
+# Server jauh (Render) punya latensi jaringan yang tidak ada di localhost,
+# jadi ambang ack dilonggarkan supaya yang dilaporkan gagal benar-benar
+# masalah aplikasi, bukan sekadar jarak ke Singapura.
+BATAS_ACK_DETIK = 2.0 if BASIS.startswith("http://127.0.0.1") or BASIS.startswith("http://localhost") else 5.0
 gagal = 0
 
 
@@ -300,7 +308,7 @@ async def uji_quiz():
     return kode
 
 
-async def uji_beban(jumlah=150):
+async def uji_beban(jumlah=JUMLAH_BEBAN):
     print(f"\n[3] Uji beban — {jumlah} partisipan menjawab bersamaan")
     sesi = panggil("POST", "/api/admin/sesi", {"judul": "Uji Beban", "mode": "quiz"})
     kode = sesi["kode_sesi"]
@@ -338,7 +346,7 @@ async def uji_beban(jumlah=150):
         diterima = sum(1 for h in hasil if h["ok"])
         print(f"  info  {diterima}/{jumlah} jawaban di-ack dalam {durasi*1000:.0f} ms")
         cek("semua jawaban diterima server", diterima == jumlah, f"{diterima}/{jumlah}")
-        cek("ack di bawah 2 detik", durasi < 2.0, f"{durasi:.2f}s")
+        cek(f"ack di bawah {BATAS_ACK_DETIK:.0f} detik", durasi < BATAS_ACK_DETIK, f"{durasi:.2f}s")
 
         # Hitung berapa kali presenter menerima broadcast (harus di-throttle, bukan 150x).
         agg = await ambil(presenter, "hasil", batas=6)
@@ -355,7 +363,7 @@ async def uji_beban(jumlah=150):
         await asyncio.gather(*(ws.close() for ws in sockets))
 
     isi = panggil("GET", f"/api/admin/sesi/{kode}/export.xlsx")
-    cek("export 150 jawaban berhasil", isinstance(isi, bytes) and len(isi) > 8000, f"{len(isi)} byte")
+    cek(f"export {jumlah} jawaban berhasil", isinstance(isi, bytes) and len(isi) > 8000, f"{len(isi)} byte")
     panggil("POST", f"/api/admin/sesi/{kode}/akhiri")
 
 
@@ -363,7 +371,7 @@ async def utama():
     print(f"Menguji {BASIS}")
     await uji_survey()
     await uji_quiz()
-    await uji_beban(150)
+    await uji_beban()
     print(f"\n{'SEMUA UJI LULUS' if gagal == 0 else f'{gagal} UJI GAGAL'}")
     return 1 if gagal else 0
 
