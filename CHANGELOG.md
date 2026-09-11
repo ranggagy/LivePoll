@@ -13,6 +13,46 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Reveal peringkat besar di HP + konfirmasi FLIP leaderboard presenter
+
+User minta animasi "pindah posisi" ala Kahoot di leaderboard, dan urutan
+reveal baru di layar HP peserta setelah menjawab.
+
+**Presenter (dikonfirmasi, sudah ada dari sebelumnya)**: panel "Lihat
+Leaderboard" (`isiPapanUtama()` di present.js) sudah pakai FLIP
+(`rekamPosisi`/`mainkanFlip` di common.js) — baris otomatis ter-animasi
+geser ke posisi barunya tiap kali urutan berubah. Tidak ada perubahan di sini.
+
+**HP peserta (baru)**: layar hasil kuis (`gambarHasilKuis` di play.js)
+sebelumnya langsung menampilkan "Total poin · Peringkat #N" statis plus
+panel "Posisimu" (satu peringkat di atas, kamu, satu di bawah — ini juga
+sudah ada dari sebelumnya, dikonfirmasi masih bekerja). Sekarang ditambah
+tahap reveal di tengah:
+
+1. Badge benar/salah + animasi hitung `+poin` (seperti sebelumnya).
+2. **Baru**: angka peringkat besar di tengah layar muncul, BERJALAN dari
+   peringkat soal sebelumnya ke peringkat baru (bukan cuma muncul diam) —
+   inilah "animasi pindah posisi"-nya, plus indikator ▲ naik / ▼ turun /
+   tetap dibanding sebelumnya.
+3. Angka besar itu mengecil (scale-out) dan digantikan ringkasan kompak
+   "Total poin · Peringkat #N" + panel "Posisimu" tadi.
+
+Total durasi tahap 2-3 diatur supaya kira-kira selesai bersamaan dengan
+leaderboard presenter yang otomatis terbuka 3 detik setelah soal ditutup
+(`timerLeaderboardOtomatis` di present.js), jadi kedua layar terasa nyambung.
+Peringkat sebelumnya disimpan di variabel modul (`peringkatSebelumnya`),
+reset tiap reload halaman. Reveal ini dilewati kalau `prefers-reduced-motion`
+aktif atau belum ada peringkat (langsung tampil final, seperti perilaku lama).
+
+File: [play.js](static/js/play.js), [app.css](static/css/app.css).
+
+**Verifikasi**: sesi kuis lokal 5 soal + 10 peserta seed, dijawab lewat
+browser sungguhan sambil diinstrumentasi (polling DOM tiap 120ms). Konfirmasi
+urutan: `#peringkat-besar` muncul opacity 0→1 dengan angka berjalan dari
+peringkat lama ke baru, delta "Peringkat tetap/naik/turun" tampil, lalu
+opacity turun ke 0 dan elemen dilepas, baru setelah itu `#papan-sekitar`
+terisi — sesuai urutan yang diminta.
+
 ## 2026-09-11 — Baris ke-10 leaderboard podium kepotong di Layar Penuh (produksi)
 
 User laporkan via screenshot dari Render sungguhan: baris "10 Peserta099 4002"

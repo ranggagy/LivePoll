@@ -1249,6 +1249,65 @@ textarea.input:focus {
   color: var(--accent-deep);
 }
 
+/* --- Reveal peringkat di HP (angka besar → mengecil → leaderboard) ------- */
+
+.peringkat-besar {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  opacity: 0;
+}
+.peringkat-besar-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.peringkat-besar-angka {
+  font-size: clamp(48px, 16vw, 84px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--accent-deep);
+}
+.peringkat-besar-angka::before {
+  content: "#";
+  font-size: 0.5em;
+  opacity: 0.45;
+  margin-right: 2px;
+}
+.peringkat-besar-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-sedang) ease, transform var(--dur-sedang) var(--ease-out);
+}
+.peringkat-besar-delta.tampil {
+  opacity: 1;
+  transform: none;
+}
+.peringkat-besar-delta.naik {
+  color: var(--benar);
+}
+.peringkat-besar-delta.turun {
+  color: var(--danger);
+}
+.peringkat-besar-delta.tetap {
+  color: var(--muted);
+}
+
+.peringkat-ringkas {
+  opacity: 0;
+}
+
 /* --- Status koneksi ------------------------------------------------------ */
 
 .status-koneksi {
