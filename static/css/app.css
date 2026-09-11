@@ -1135,20 +1135,26 @@ textarea.input:focus {
 .tampilan.keluar {
   animation: tampilKeluar 200ms var(--ease-in-out) forwards;
 }
+/* SENGAJA cuma opacity, bukan transform: translateY seperti sebelumnya.
+   animation:...both mengunci property yang dianimasikan SELAMANYA (fill-mode
+   "both" tidak pernah lepas kendalinya) — kalau "transform" ikut dianimasikan
+   di sini, elemen ini (persis #isi-panggung > div, target scale-down Layar
+   Penuh di present.js) tidak akan pernah bisa di-scale lewat inline style
+   lagi, animasi CSS ini yang selalu menang. Itu penyebab opsi/podium kepotong
+   horizontal di Layar Penuh: width:100/skala% kepasang (tidak disentuh
+   animasi ini) tapi transform:scale() yang harusnya mengecilkan balik selalu
+   ditimpa balik ke translateY(0) oleh animasi ini. */
 @keyframes tampilMasuk {
   from {
     opacity: 0;
-    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 @keyframes tampilKeluar {
   to {
     opacity: 0;
-    transform: translateY(-10px);
   }
 }
 

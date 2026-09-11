@@ -13,6 +13,51 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Bug asli overflow horizontal di Layar Penuh ketemu & diperbaiki
+
+Perbaikan sebelumnya (`document.fonts.ready`) ternyata cuma menutupi gejala,
+bukan akar masalah — user masih melapor opsi/podium kepotong di Layar Penuh,
+tapi kali ini jelas terlihat **horizontal** (teks & bar warna meluber ke
+kanan lewat tepi layar), bukan soal tinggi.
+
+**Akar masalah sesungguhnya**: [static/css/app.css](static/css/app.css)
+kelas `.tampilan` (dipasang tiap kali layar presenter berganti tampilan —
+lobi, soal, hasil, leaderboard, podium, lewat `gantiTampilan()` di
+[common.js](static/js/common.js)) pakai
+`animation: tampilMasuk 340ms ... both`. Fill-mode `both` mengunci properti
+yang dianimasikan **selamanya** — dan `tampilMasuk` ikut menganimasikan
+`transform: translateY(...)`. Akibatnya elemen yang sama itu juga jadi
+target scale-down `sesuaikanUkuranPanggung()` di
+[present.js](static/js/present.js): `konten.style.transform = "scale(...)"`
+yang di-set lewat JS **selalu ditimpa balik** ke `translateY(0)` oleh
+animasi CSS ini (animasi CSS menang atas inline style untuk properti yang
+sama), sementara `konten.style.width = "100/skala%"` (properti yang TIDAK
+disentuh animasi) tetap terpasang penuh. Hasilnya: konten dibuat jauh lebih
+LEBAR untuk kompensasi scale yang seharusnya mengecilkan baliknya — tapi
+scale itu sendiri tidak pernah benar-benar terjadi secara visual, jadi
+konten meluber ke kanan alih-alih mengecil proporsional.
+
+**Perbaikan**: `tampilMasuk`/`tampilKeluar` di app.css diubah jadi cuma
+animasi opacity (fade), transform dihapus dari keyframe-nya. Efek slide
+halus yang hilang cuma kosmetik minor; yang penting elemen `.tampilan`
+sekarang bebas dipakai `transform` lewat inline style oleh kode lain
+(termasuk scale-down Layar Penuh) tanpa direbut balik animasi CSS.
+
+**Cara verifikasi** (Fullscreen API tidak bisa dites di browser pane
+sandbox): override `document.fullscreenElement` via
+`Object.defineProperty` + paksa viewport pendek (`resize_window` /
+DevTools), lalu cek `getComputedStyle(konten).transform` benar-benar
+`matrix(0.55,...)` (bukan cuma inline style yang di-set tapi tidak
+computed). Sebelum fix: computed transform tetap `translateY(0)` walau
+inline style sudah di-set ke scale(). Sesudah fix: computed transform
+ikut inline style dengan benar, tidak ada lagi overflow horizontal.
+
+**Pelajaran untuk ke depan**: kalau ada elemen yang PERLU di-manipulasi
+`transform`/properti lain lewat JS di masa depan, jangan taruh
+`animation:...both/forwards` yang menyentuh properti yang sama pada elemen
+itu — fill-mode yang "menempel" selamanya akan selalu menang atas inline
+style JS untuk properti tersebut.
+
 ## 2026-09-11 — 10 bug dari code review diperbaiki (skor dobel, race condition, tampilan)
 
 Hasil code review menyeluruh (8 sudut pandang: backend, frontend, kontrak
