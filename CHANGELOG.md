@@ -13,6 +13,22 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Tabel podium presenter di-center & dilebarkan mengisi kotaknya
+
+User kirim diagram: dua kotak biru sama besar di dalam satu kotak luar —
+maksudnya podium & tabel harus sama-sama MENGISI kotak kiri/kanannya
+masing-masing, bukan cuma sama-sama diberi kolom 50/50 tapi isinya beda
+proporsi. Grid 2 kolom dari perbaikan sebelumnya sudah benar, tapi tabel
+`.papan-lanjutan` masih `max-width: 520px` disandarkan ke kiri kolomnya —
+di kolom kanan yang lebar (~850px di layar besar), itu nyisain area kosong
+besar di sisi kanan, jadi kotak kanan kelihatan "kosong" dibanding kotak
+kiri yang penuh podium.
+
+**Perbaikan**: `:fullscreen #podium-wadah .papan-lanjutan` diganti
+`max-width: 92%; width: 100%; margin: 0 auto` — tabel sekarang di-CENTER
+dan mengisi hampir seluruh lebar kotak kanannya, sama seperti podium yang
+sudah mengisi kotak kirinya. File: [app.css](static/css/app.css).
+
 ## 2026-09-11 — Tabel peringkat 4-10 di podium presenter dibesarkan
 
 Setelah podium dibagi dua kolom (entri sebelumnya), user masih bilang
