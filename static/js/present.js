@@ -106,18 +106,33 @@ function sesuaikanUkuranPanggung() {
   isi.style.maxHeight = `${tersedia}px`;
   isi.style.overflowX = "hidden";
 
+  // BUG NYATA yang sempat kejadian: `konten` (elemen yang di-scale) duduk
+  // di DALAM padding atas+bawah #isi-panggung (kartu-isi), jadi ruang yang
+  // sungguh-sungguh tersedia untuknya lebih kecil dari `tersedia` (yang
+  // masih termasuk padding). Tanpa dikurangi, skala yang dihitung selalu
+  // sedikit kurang kecil — baris terakhir podium/leaderboard kepotong tepat
+  // sebesar padding itu (~24-48px), meski keliatan "sudah di-scale".
+  const gayaIsi = getComputedStyle(isi);
+  const paddingIsi =
+    parseFloat(gayaIsi.paddingTop || "0") + parseFloat(gayaIsi.paddingBottom || "0");
+  const tersediaKonten = Math.max(80, tersedia - paddingIsi);
+
   const dibutuhkan = konten.scrollHeight;
   let skala = 1;
-  if (dibutuhkan > tersedia) {
-    skala = Math.max(0.55, tersedia / dibutuhkan);
+  if (dibutuhkan > tersediaKonten) {
+    // Sengaja TIDAK ada batas bawah untuk skala ini — konten kecil di layar
+    // sempit lebih baik daripada baris terakhir hilang sama sekali tanpa
+    // cara untuk melihatnya.
+    skala = tersediaKonten / dibutuhkan;
     konten.style.transformOrigin = "top left";
     konten.style.transform = `scale(${skala})`;
     konten.style.width = `${100 / skala}%`;
   }
-  // Viewport ekstrem sempit: skala minimum masih belum cukup. Lebih baik
-  // kartu ini sendiri yang scroll (masih dalam batas kartu, tidak terasa
-  // seperti scroll halaman) daripada sebagian opsi tak pernah terlihat sama sekali.
-  isi.style.overflowY = dibutuhkan * skala > tersedia ? "auto" : "hidden";
+  // Jaring pengaman terakhir kalau toleransi pembulatan masih menyisakan
+  // sedikit kelebihan: kartu ini sendiri yang scroll (masih dalam batas
+  // kartu, tidak terasa seperti scroll halaman) daripada sebagian konten
+  // tak pernah terlihat sama sekali.
+  isi.style.overflowY = dibutuhkan * skala > tersediaKonten ? "auto" : "hidden";
 }
 
 /**

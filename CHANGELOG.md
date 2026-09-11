@@ -13,6 +13,46 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Baris ke-10 leaderboard podium kepotong di Layar Penuh (produksi)
+
+User laporkan via screenshot dari Render sungguhan: baris "10 Peserta099 4002"
+kepotong tepat di tepi bawah kartu saat Layar Penuh, setelah podium & tabel
+dibesarkan (dua entri sebelumnya). Root cause ada DUA lapis di
+`sesuaikanUkuranPanggung()` (`present.js`), fungsi bersama yang dipakai semua
+tampilan presenter fullscreen (soal, hasil, leaderboard, podium):
+
+1. Skala pengecilan konten dibatasi minimum `Math.max(0.55, ...)` — begitu
+   podium+tabel jadi lebih besar (entri sebelumnya), batas 0.55 ini bikin
+   konten TIDAK bisa mengecil cukup jauh, jadi baris terbawah tetap kepotong.
+2. Lebih mendasar: budget tinggi yang tersedia (`tersedia`) dihitung dari
+   tepi atas `#isi-panggung` (kartu pembungkus, `.kartu-isi`), padahal elemen
+   yang benar-benar di-scale (`konten`) duduk DI DALAM padding atas+bawah
+   kartu itu (`padding: 24px 26px` → 48px vertikal). Rasio skala jadi
+   dihitung terhadap budget yang terlalu longgar (masih termasuk padding
+   yang sebenarnya tak tersedia untuk `konten`), sehingga selalu under-scale
+   sebesar kira-kira padding itu.
+
+**Perbaikan**: hapus batas bawah 0.55 (skala boleh sekecil apa pun asal
+konten tetap utuh terlihat — lebih baik kecil daripada baris hilang), dan
+kurangi budget dengan padding vertikal `#isi-panggung` (`getComputedStyle`)
+sebelum menghitung rasio skala maupun fallback `overflow-y: auto`. File:
+[present.js](static/js/present.js).
+
+**Verifikasi**: dites di server lokal dengan sesi 10 peserta (3 podium + 7
+baris tabel), simulasi fullscreen (override `document.fullscreenElement` +
+re-apply override CSS `:fullscreen #podium-wadah` manual via JS, karena
+pseudo-class fullscreen sungguhan tak bisa dipicu di sandbox browser).
+- Viewport ketat 1920×720 (dulu gagal, `barisTerakhirBottom` 594.69 >
+  `isiBottom` 571.00): sekarang skala turun ke 0.614, `barisTerakhirBottom`
+  546.73 ≤ `isiBottom` 571.00 — semua 10 baris utuh terlihat.
+- Viewport normal 1920×1080 (cek regresi): tidak perlu scaling sama sekali
+  (`isiScale: none`), `barisTerakhirBottom` 762.06 ≤ `isiBottom` 786.06 —
+  tidak ada regresi.
+
+Perbaikan ini murni mengurangi budget (lebih konservatif), jadi tak mungkin
+menyebabkan overflow baru di panel leaderboard utama (`skalakanPapanUtama()`)
+yang juga memakai fungsi yang sama.
+
 ## 2026-09-11 — Podium presenter dibesarkan sedikit di Layar Penuh
 
 Setelah kotak kiri-kanan seimbang (entri sebelumnya), user minta podiumnya
