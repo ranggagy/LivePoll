@@ -518,6 +518,11 @@ export const NAMA_TIPE = {
 
 export const KELAS_OPSI = ["opt-a", "opt-b", "opt-c", "opt-d", "opt-e", "opt-f"];
 
+/** Opsi jawaban panjang berdesakan di kotak 2-kolom sempit — kelas ini yang
+    memutuskan kapan grid pindah ke 1 kolom (baris penuh) di CSS. */
+const OPSI_PANJANG = 24;
+export const adaOpsiPanjang = (opsi) => opsi.some((o) => o.teks.length > OPSI_PANJANG);
+
 export function simpanLokal(kunci, nilai) {
   try {
     localStorage.setItem(kunci, JSON.stringify(nilai));

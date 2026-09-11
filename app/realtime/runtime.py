@@ -37,6 +37,7 @@ from .hub import PERAN_PARTISIPAN, PERAN_PRESENTER, hub
 log = logging.getLogger("livepoll.runtime")
 
 TOTAL_BARIS_TABEL = 7  # + 3 podium = maksimal 10 nama tampil di layar sesi selesai
+HITUNG_MUNDUR_DETIK = 3  # jeda sebelum opsi/timer soal benar-benar mulai
 
 
 def bangun_podium(urut: list[dict], participant_id: int | None = None, total_tabel: int = TOTAL_BARIS_TABEL) -> dict:
@@ -177,6 +178,17 @@ class StatePertanyaan:
 
     # -- payload untuk client ---------------------------------------------
 
+    def payload_hitung_mundur(self) -> dict:
+        """Dikirim saat soal baru diaktifkan, sebelum opsi/timer sungguhan tampil."""
+        return {
+            "id": self.id,
+            "tipe": self.tipe,
+            "teks": self.teks,
+            "gambar": self.gambar,
+            "urutan_ke": self.urutan_ke,
+            "total_soal": self.total_soal,
+        }
+
     def payload_pertanyaan(self, untuk_presenter: bool = False) -> dict:
         buka_kunci = self.ditutup or untuk_presenter
         opsi = [
@@ -263,6 +275,11 @@ class RuntimeSesi:
         self._gembok = asyncio.Lock()
         self._task_flush: asyncio.Task | None = None
         self._task_timer: asyncio.Task | None = None
+        # Naik tiap kali aktifkan() dipanggil — dipakai task hitung mundur
+        # supaya tahu kalau dirinya sudah basi (soal yang sama diaktifkan
+        # ulang sebelum hitung mundur sebelumnya selesai; membandingkan
+        # question_id saja tidak cukup kalau soalnya sama persis).
+        self._generasi_aktif = 0
 
     # -- siklus hidup ------------------------------------------------------
 
@@ -413,7 +430,13 @@ class RuntimeSesi:
     # -- operasi presenter -------------------------------------------------
 
     async def aktifkan(self, question_id: int) -> dict:
-        """Buka satu soal: tutup soal sebelumnya, reset timer, broadcast ke semua."""
+        """Buka satu soal: tutup soal sebelumnya, siarkan hitung mundur, baru
+        benar-benar mulai (timer & opsi terbuka) setelah HITUNG_MUNDUR_DETIK.
+
+        Supaya presenter tidak menunggu request HTTP-nya, hitung mundur dan
+        "mulai sungguhan" dijalankan sebagai task terpisah di background —
+        endpoint langsung selesai begitu siaran hitung mundur terkirim.
+        """
         async with self._gembok:
             if self.aktif is not None and not self.aktif.ditutup:
                 await self._tutup_internal(siarkan=False)
@@ -438,7 +461,10 @@ class RuntimeSesi:
                 urutan_ke = semua.index(question_id) + 1 if question_id in semua else 1
 
                 q.status = STATUS_Q_BERJALAN
-                q.dibuka_at = sekarang()
+                # dibuka_at sengaja dikosongkan dulu — baru diisi setelah hitung
+                # mundur selesai, supaya durasi menjawab utuh dimulai dari saat
+                # opsi benar-benar terbuka, bukan dari saat tombol diklik.
+                q.dibuka_at = None
                 q.ditutup_at = None
                 # Jawaban lama soal ini dibuang supaya soal benar-benar mulai bersih.
                 await db.execute(delete(Jawaban).where(Jawaban.question_id == question_id))
@@ -450,31 +476,71 @@ class RuntimeSesi:
                 self.aktif = StatePertanyaan(
                     q, urutan_ke, self.total_soal, bertimer=self.mode == MODE_QUIZ
                 )
+                self._generasi_aktif += 1
+                generasi = self._generasi_aktif
 
-        self.mulai_loop()
-        self._pasang_timer()
-        await hub.siarkan(
-            self.kode,
-            {
-                "tipe": "pertanyaan_dibuka",
-                "sesi": self.payload_sesi(),
-                "pertanyaan": self.aktif.payload_pertanyaan(),
-                "hasil": self.aktif.payload_hasil(),
-            },
-            peran=PERAN_PARTISIPAN,
-        )
-        await hub.siarkan(
-            self.kode,
-            {
-                "tipe": "pertanyaan_dibuka",
-                "sesi": self.payload_sesi(),
-                "pertanyaan": self.aktif.payload_pertanyaan(untuk_presenter=True),
-                "hasil": self.aktif.payload_hasil(),
-                "moderasi": self.aktif.payload_moderasi() if self.aktif.tipe == TIPE_WORD_CLOUD else None,
-            },
-            peran=PERAN_PRESENTER,
-        )
+            await hub.siarkan(
+                self.kode,
+                {
+                    "tipe": "hitung_mundur",
+                    "sesi": self.payload_sesi(),
+                    "pertanyaan": self.aktif.payload_hitung_mundur(),
+                    "detik": HITUNG_MUNDUR_DETIK,
+                },
+            )
+
+        asyncio.create_task(self._mulai_setelah_hitung_mundur(question_id, generasi))
         return {"ok": True}
+
+    async def _mulai_setelah_hitung_mundur(self, question_id: int, generasi: int) -> None:
+        try:
+            await asyncio.sleep(HITUNG_MUNDUR_DETIK)
+            async with self._gembok:
+                # Soal ini sudah diganti/ditutup/diaktifkan ulang duluan selama
+                # hitung mundur (mis. presenter buru-buru klik ulang soal yang
+                # sama) — cek generasi, bukan cuma question_id, supaya task
+                # basi ini tidak ikut memulai soal yang sudah bukan urusannya.
+                if (
+                    self.aktif is None
+                    or self.aktif.id != question_id
+                    or self.aktif.ditutup
+                    or self._generasi_aktif != generasi
+                ):
+                    return
+                async with BuatSesiDB() as db:
+                    q = await db.get(Pertanyaan, question_id)
+                    if q is not None:
+                        q.dibuka_at = sekarang()
+                        await db.commit()
+                self.aktif.dibuka_epoch = time.time()
+
+            self.mulai_loop()
+            self._pasang_timer()
+            await hub.siarkan(
+                self.kode,
+                {
+                    "tipe": "pertanyaan_dibuka",
+                    "sesi": self.payload_sesi(),
+                    "pertanyaan": self.aktif.payload_pertanyaan(),
+                    "hasil": self.aktif.payload_hasil(),
+                },
+                peran=PERAN_PARTISIPAN,
+            )
+            await hub.siarkan(
+                self.kode,
+                {
+                    "tipe": "pertanyaan_dibuka",
+                    "sesi": self.payload_sesi(),
+                    "pertanyaan": self.aktif.payload_pertanyaan(untuk_presenter=True),
+                    "hasil": self.aktif.payload_hasil(),
+                    "moderasi": self.aktif.payload_moderasi() if self.aktif.tipe == TIPE_WORD_CLOUD else None,
+                },
+                peran=PERAN_PRESENTER,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Gagal memulai soal %s setelah hitung mundur, sesi %s", question_id, self.kode)
 
     def _batalkan_timer(self) -> None:
         """Batalkan task timer, kecuali kalau kode ini justru berjalan di dalamnya.
@@ -682,6 +748,8 @@ class RuntimeSesi:
         state = self.aktif
         if state is None:
             return {"ok": False, "pesan": "Belum ada soal yang dibuka"}
+        if state.dibuka_epoch is None:
+            return {"ok": False, "pesan": "Soal belum dimulai"}
         if muatan.get("question_id") not in (None, state.id):
             return {"ok": False, "pesan": "Soal sudah berganti"}
         if state.ditutup:
@@ -753,6 +821,15 @@ class RuntimeSesi:
 
     def state_untuk_partisipan(self, participant_id: int) -> dict:
         """State lengkap saat partisipan pertama connect atau reconnect."""
+        if self.aktif is not None and self.aktif.dibuka_epoch is None:
+            # Reconnect persis di tengah jendela hitung mundur (jarang tapi
+            # murah ditangani) — jangan bocorkan opsi jawaban lebih awal.
+            return {
+                "tipe": "hitung_mundur",
+                "sesi": self.payload_sesi(),
+                "pertanyaan": self.aktif.payload_hitung_mundur(),
+                "detik": HITUNG_MUNDUR_DETIK,
+            }
         muatan: dict = {"tipe": "state", "sesi": self.payload_sesi(), "pertanyaan": None}
         if self.mode == MODE_QUIZ:
             muatan["total_poin"] = self.poin_total.get(participant_id, 0)
@@ -779,6 +856,13 @@ class RuntimeSesi:
         return muatan
 
     def state_untuk_presenter(self) -> dict:
+        if self.aktif is not None and self.aktif.dibuka_epoch is None:
+            return {
+                "tipe": "hitung_mundur",
+                "sesi": self.payload_sesi(),
+                "pertanyaan": self.aktif.payload_hitung_mundur(),
+                "detik": HITUNG_MUNDUR_DETIK,
+            }
         muatan: dict = {
             "tipe": "state",
             "sesi": self.payload_sesi(),

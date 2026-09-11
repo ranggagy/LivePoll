@@ -8,6 +8,7 @@ jawaban yang sudah masuk.
 
 import asyncio
 import logging
+import time
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -103,6 +104,12 @@ class ManajerRuntime:
                         (await db.execute(select(Jawaban).where(Jawaban.question_id == q.id))).scalars().all()
                     )
                     _pulihkan_agregat(state, jawaban)
+                    if state.dibuka_epoch is None:
+                        # Instance restart persis di tengah hitung mundur (jendela
+                        # sangat sempit) — konteksnya sudah hilang, jadi anggap
+                        # soal mulai sekarang daripada macet selamanya menunggu
+                        # task yang tidak akan pernah datang lagi.
+                        state.dibuka_epoch = time.time()
                     runtime.aktif = state
                     runtime._pasang_timer()
 

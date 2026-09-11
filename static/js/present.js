@@ -16,6 +16,8 @@ import {
   CincinTimer,
   KlienSoket,
   KELAS_OPSI,
+  adaOpsiPanjang,
+  gerakDikurangi,
 } from "./common.js";
 
 const akar = document.querySelector("[data-kode]");
@@ -58,6 +60,126 @@ function catatOnline(jumlah) {
   if (jumlah > puncakOnline) puncakOnline = jumlah;
 }
 
+/* ------------------------------------------------------- Muat layar ----- */
+
+/**
+ * Di mode Layar Penuh, konten tidak boleh sampai bikin scroll — soal atau
+ * opsi yang kepanjangan lebih baik mengecil proporsional (seperti zoom-out)
+ * daripada terpotong scrollbar di depan audiens. Di luar Layar Penuh, scroll
+ * biasa tetap dibiarkan (wajar untuk browsing normal).
+ */
+function sesuaikanUkuranPanggung() {
+  const konten = isi.firstElementChild;
+  if (!konten) return;
+
+  // Reset dulu supaya pengukuran berikutnya tidak kena bekas skala lama.
+  konten.style.transform = "";
+  konten.style.width = "";
+  isi.style.maxHeight = "";
+  isi.style.overflow = "";
+  isi.style.overflowX = "";
+  isi.style.overflowY = "";
+
+  if (!document.fullscreenElement) return;
+
+  // atasIsi cuma bergantung pada apa yang ada DI ATAS #isi-panggung (topbar +
+  // kepala kartu), bukan pada tinggi isinya sendiri — jadi aman diukur
+  // langsung. Ruang untuk #kontrol di bawah dihitung dari tinggi aslinya
+  // (offsetHeight, juga tidak bergantung tinggi #isi-panggung) supaya tidak
+  // ada lingkaran ukur-mengukur.
+  const kontrol = $("#kontrol");
+  const paddingBawahWadah = parseFloat(getComputedStyle(akar).paddingBottom || "0");
+  const atasIsi = isi.getBoundingClientRect().top;
+  let cadanganBawah = paddingBawahWadah + 8;
+  if (kontrol) {
+    const gaya = getComputedStyle(kontrol);
+    cadanganBawah += kontrol.offsetHeight + parseFloat(gaya.marginTop || "0");
+  }
+  const tersedia = Math.max(160, window.innerHeight - atasIsi - cadanganBawah);
+
+  isi.style.maxHeight = `${tersedia}px`;
+  isi.style.overflowX = "hidden";
+
+  const dibutuhkan = konten.scrollHeight;
+  let skala = 1;
+  if (dibutuhkan > tersedia) {
+    skala = Math.max(0.55, tersedia / dibutuhkan);
+    konten.style.transformOrigin = "top left";
+    konten.style.transform = `scale(${skala})`;
+    konten.style.width = `${100 / skala}%`;
+  }
+  // Viewport ekstrem sempit: skala minimum masih belum cukup. Lebih baik
+  // kartu ini sendiri yang scroll (masih dalam batas kartu, tidak terasa
+  // seperti scroll halaman) daripada sebagian opsi tak pernah terlihat sama sekali.
+  isi.style.overflowY = dibutuhkan * skala > tersedia ? "auto" : "hidden";
+}
+
+document.addEventListener("fullscreenchange", sesuaikanUkuranPanggung);
+window.addEventListener("resize", sesuaikanUkuranPanggung);
+
+/* -------------------------------------------------------- Hitung mundur - */
+
+let intervalHitungMundur = null;
+
+/** Soal baru saja diaktifkan: tampilkan pertanyaannya dulu + hitung mundur,
+    opsi jawaban baru muncul setelah server benar-benar membuka soal. */
+function gambarHitungMundur(pertanyaan, detik) {
+  clearInterval(intervalHitungMundur);
+  idPertanyaanTampil = null;
+  tipeTampil = null;
+  timer.sembunyikan();
+  $("#btn-tutup").disabled = true;
+  $("#btn-berikutnya").disabled = true;
+  const tombolPapan = $("#btn-papan");
+  if (tombolPapan) tombolPapan.disabled = true;
+  const kartuPeserta = $("#kartu-peserta-lobi");
+  if (kartuPeserta && !kartuPeserta.classList.contains("sembunyi")) {
+    kartuPeserta.classList.add("sembunyi");
+    rapikanKolom();
+  }
+
+  gantiTampilan(isi, () => {
+    const el = document.createElement("div");
+    el.innerHTML = `
+      <div class="chip mb-16">Pertanyaan ${pertanyaan.urutan_ke} dari ${pertanyaan.total_soal}</div>
+      <div class="pertanyaan-baris mb-24">
+        ${pertanyaan.gambar ? `<img class="pertanyaan-gambar" src="${pertanyaan.gambar}" alt="">` : ""}
+        <div class="tumbuh pertanyaan-besar">${escapeHtml(pertanyaan.teks)}</div>
+      </div>
+      <div class="tengah">
+        <div class="hitung-mundur-angka" id="angka-mundur">${detik}</div>
+        <p class="muted mt-8">Bersiap-siap…</p>
+      </div>`;
+    return el;
+  }).then(() => sesuaikanUkuranPanggung());
+
+  mulaiAnimasiHitungMundur(detik);
+}
+
+function mulaiAnimasiHitungMundur(detik) {
+  let sisa = detik;
+  const tampilkan = (n) => {
+    const el = $("#angka-mundur");
+    if (!el) return;
+    el.textContent = String(n);
+    if (!gerakDikurangi()) {
+      el.animate(
+        [{ transform: "scale(1.4)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }],
+        { duration: 380, easing: "cubic-bezier(0.34,1.56,0.64,1)" }
+      );
+    }
+  };
+  tampilkan(sisa);
+  intervalHitungMundur = setInterval(() => {
+    sisa -= 1;
+    if (sisa <= 0) {
+      clearInterval(intervalHitungMundur);
+      return;
+    }
+    tampilkan(sisa);
+  }, 1000);
+}
+
 /* ------------------------------------------------------------- Lobi ----- */
 
 function gambarLobi() {
@@ -80,6 +202,7 @@ function gambarLobi() {
   }).then(() => {
     const qr = $("#qr-img");
     if (qr) qr.addEventListener("click", bukaZoomQr);
+    sesuaikanUkuranPanggung();
   });
 
   if (KUIS) {
@@ -171,6 +294,7 @@ function gambarSesiSelesai(sesi, leaderboard) {
     return el;
   }).then(() => {
     if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard);
+    sesuaikanUkuranPanggung();
   });
   if (adaPodium) mainkanKembangApi();
 }
@@ -202,15 +326,16 @@ function gambarHasilMC(hasil) {
   if (!wadah) return;
   const maks = Math.max(...hasil.opsi.map((o) => o.jumlah), 0);
 
-  hasil.opsi.forEach((o) => {
+  hasil.opsi.forEach((o, i) => {
     let baris = wadah.querySelector(`[data-opsi="${o.id}"]`);
     if (!baris) {
       baris = document.createElement("div");
       baris.className = "bar-baris";
       baris.dataset.opsi = String(o.id);
+      // Warna kategori per opsi supaya tiap bar gampang dibedakan sekilas.
       baris.innerHTML = `
         <div class="bar-label"></div>
-        <div class="bar-jalur"><div class="bar-isi"></div></div>
+        <div class="bar-jalur"><div class="bar-isi warna-${(i % 4) + 1}"></div></div>
         <div class="bar-angka"></div>`;
       baris.querySelector(".bar-label").textContent = o.teks;
       wadah.appendChild(baris);
@@ -227,7 +352,7 @@ function gambarHasilMC(hasil) {
       const label = baris.querySelector(".bar-label");
       if (o.benar && !label.dataset.ditandai) {
         label.dataset.ditandai = "1";
-        label.innerHTML = `${escapeHtml(o.teks)} <span class="chip chip-aksen" style="margin-left:6px">Benar</span>`;
+        label.innerHTML = `${escapeHtml(o.teks)} <span class="chip chip-benar" style="margin-left:6px">Benar</span>`;
       }
     }
 
@@ -424,6 +549,7 @@ function isiPapanUtama(papan) {
   if (!wadah || !papan) return;
   if (!papan.baris.length) {
     wadah.innerHTML = '<div class="kosong">Belum ada skor</div>';
+    sesuaikanUkuranPanggung();
     return;
   }
   const kosong = wadah.querySelector(".kosong");
@@ -452,6 +578,7 @@ function isiPapanUtama(papan) {
     if (!urut.includes(el)) el.remove();
   });
   mainkanFlip(urut, sebelum);
+  sesuaikanUkuranPanggung();
 }
 
 /** Simpan leaderboard terbaru dan aktifkan/nonaktifkan tombol sesuai ketersediaan data. */
@@ -527,7 +654,7 @@ function gambarOpsiKuis(hasil) {
     panel = document.createElement("div");
     panel.className = "opsi-papan";
     const grid = document.createElement("div");
-    grid.className = "kuis-grid papan";
+    grid.className = `kuis-grid papan${adaOpsiPanjang(hasil.opsi) ? " satu-kolom" : ""}`;
     hasil.opsi.forEach((o, i) => {
       const kotak = document.createElement("div");
       kotak.className = `kuis-kotak papan ${KELAS_OPSI[i % KELAS_OPSI.length]}`;
@@ -578,20 +705,29 @@ function terapkanHasil(hasil) {
     if (KUIS) {
       // Quiz Mode: distribusi baru boleh muncul setelah soal ditutup.
       if (hasil.ditutup) bukaHasil();
-      else return gambarOpsiKuis(hasil);
+      else {
+        gambarOpsiKuis(hasil);
+        sesuaikanUkuranPanggung();
+        return;
+      }
     } else {
       // Word cloud terbuka begitu presenter menyetujui kata pertama — approve
       // itu sendiri sudah tindakan sadar presenter, tidak perlu digerbang dua kali.
       const lewatAmbang = hasil.total_jawaban >= ambangJawaban();
       const adaKataDisetujui = hasil.tipe === "word_cloud" && hasil.kata.length > 0;
       if (hasil.ditutup || lewatAmbang || adaKataDisetujui) bukaHasil();
-      else return gambarMenunggu(hasil);
+      else {
+        gambarMenunggu(hasil);
+        sesuaikanUkuranPanggung();
+        return;
+      }
     }
   }
 
   if (hasil.tipe === "mc") gambarHasilMC(hasil);
   else if (hasil.tipe === "word_cloud") gambarWordCloud(hasil);
   else if (hasil.tipe === "rating") gambarRating(hasil);
+  sesuaikanUkuranPanggung();
 }
 
 function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
@@ -662,6 +798,10 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
         break;
       case "peserta_gabung":
         tambahPesertaLobi(pesan.participant_id, pesan.nickname);
+        break;
+      case "hitung_mundur":
+        if (pesan.sesi) catatOnline(pesan.sesi.online ?? 0);
+        gambarHitungMundur(pesan.pertanyaan, pesan.detik);
         break;
       case "hasil":
         catatOnline(pesan.online);

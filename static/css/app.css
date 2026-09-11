@@ -1,21 +1,40 @@
 /* ==========================================================================
    Live Polling — design system
-   Palet enam nilai dari mockup: canvas, permukaan, aksen, aksen muda,
-   teks sekunder, tinta.
+   Palet mengikuti PANDUAN_WARNA: dasar putih, garis & teks hitam, aksen
+   merah, plus empat warna kategori untuk opsi jawaban dan grafik hasil.
+
+   Catatan semantik penting: merah dipakai sebagai warna brand (CTA, kode
+   sesi, timer) DAN sebagai penanda jawaban salah, sedangkan jawaban benar
+   sengaja dibedakan pakai biru — supaya "merah = brand" tidak rancu dengan
+   "merah = salah".
    ========================================================================== */
 
 :root {
-  --canvas: #faf8f3;
-  --surface: #f1eee5;
+  --canvas: #fdfffc;
+  --surface: #f5f5f5;
   --putih: #ffffff;
-  --accent: #c6f135;
-  --accent-tint: #e8f7ac;
-  --accent-deep: #8fae1f;
-  --ink: #1a1a17;
-  --muted: #6b6b60;
-  --line: #e4dfd2;
-  --danger: #c23b3b;
-  --danger-soft: #fbe7e7;
+  --accent: #ed1c24;
+  --accent-tint: #fce1e2;
+  --accent-deep: #b81817;
+  --ink: #020100;
+  --muted: #6b6b68;
+  --line: #020100;
+  --netral: #cfcfcc;
+  --danger: #ed1c24;
+  --danger-soft: #fce1e2;
+
+  /* Biru = jawaban benar, kuning = juara/podium teratas. */
+  --benar: #235789;
+  --benar-soft: #e1eaf1;
+  --juara: #f1d302;
+  --juara-soft: #fcf0b8;
+
+  /* Empat warna kategori: opsi jawaban, bar hasil, dan tag tipe soal. */
+  --kat-biru: #290370;
+  --kat-merah: #b81817;
+  --kat-kuning: #e9b900;
+  --kat-hijau: #557618;
+  --kat-kuning-teks: #3a2e00;
 
   --r-sm: 12px;
   --r-md: 16px;
@@ -23,9 +42,9 @@
   --r-xl: 28px;
   --r-pill: 100px;
 
-  --shadow-sm: 0 1px 2px rgba(26, 26, 23, 0.05);
-  --shadow-md: 0 8px 24px rgba(26, 26, 23, 0.08);
-  --shadow-lg: 0 24px 60px rgba(26, 26, 23, 0.16);
+  --shadow-sm: 0 1px 2px rgba(2, 1, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(2, 1, 0, 0.09);
+  --shadow-lg: 0 24px 60px rgba(2, 1, 0, 0.18);
 
   /* Kurva animasi: "spring" untuk sentuhan, "keluar" untuk transisi halus. */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -70,16 +89,16 @@ body::after {
 body::before {
   width: 460px;
   height: 460px;
-  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-  opacity: 0.22;
+  background: radial-gradient(circle, var(--kat-biru) 0%, transparent 70%);
+  opacity: 0.14;
   top: -160px;
   left: -140px;
 }
 body::after {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, #f4b860 0%, transparent 70%);
-  opacity: 0.14;
+  background: radial-gradient(circle, var(--kat-kuning) 0%, transparent 70%);
+  opacity: 0.17;
   bottom: -140px;
   right: -120px;
 }
@@ -215,6 +234,10 @@ a {
 .chip-aksen {
   background: var(--accent-tint);
 }
+.chip-benar {
+  background: var(--benar-soft);
+  color: var(--benar);
+}
 .chip-garis {
   background: transparent;
   border: 1px solid var(--line);
@@ -227,6 +250,30 @@ a {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Pil tipe soal di daftar pertanyaan — satu warna kategori per tipe. */
+.pil-tipe {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.pil-tipe-mc {
+  background: var(--kat-biru);
+  color: #ffffff;
+}
+.pil-tipe-word_cloud {
+  background: var(--kat-kuning);
+  color: var(--kat-kuning-teks);
+}
+.pil-tipe-rating {
+  background: var(--kat-hijau);
+  color: #ffffff;
 }
 
 /* --- Tombol -------------------------------------------------------------- */
@@ -330,7 +377,7 @@ textarea.input {
     background var(--dur-cepat) ease;
 }
 .input::placeholder {
-  color: #a9a89c;
+  color: #9a9a97;
   font-weight: 500;
 }
 .input:focus,
@@ -440,14 +487,32 @@ textarea.input:focus {
   /* Transisi lebar inilah yang bikin hasil live terasa mengalir, bukan meloncat. */
   transition: width var(--dur-lambat) var(--ease-out), background var(--dur-sedang) ease;
 }
-.bar-isi.teratas {
+/* Tiap opsi dapat warna kategori sendiri supaya bar gampang dibedakan
+   sekilas, bukan satu warna dominan untuk semua. */
+.bar-isi.warna-1 {
+  background: var(--kat-biru);
+}
+.bar-isi.warna-2 {
+  background: var(--kat-merah);
+}
+.bar-isi.warna-3 {
+  background: var(--kat-kuning);
+}
+.bar-isi.warna-4 {
+  background: var(--kat-hijau);
+}
+/* Distribusi rating bukan kategori — semua bar warnanya sama, hanya nilai
+   terbanyak yang disorot merah. */
+.bar-baris[data-nilai] .bar-isi.teratas {
   background: var(--accent);
 }
+/* Setelah soal kuis ditutup: hanya jawaban benar yang diberi warna (biru),
+   sisanya diredam jadi abu netral. */
 .bar-isi.benar {
-  background: var(--accent);
+  background: var(--benar);
 }
 .bar-isi.salah {
-  background: var(--line);
+  background: var(--netral);
 }
 .bar-angka {
   width: 84px;
@@ -522,7 +587,7 @@ textarea.input:focus {
 }
 .opsi-vote.terpilih {
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(198, 241, 53, 0.55);
+  box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.45);
 }
 .opsi-vote.redup {
   opacity: 0.4;
@@ -535,8 +600,31 @@ textarea.input:focus {
   background: var(--surface);
   transition: width var(--dur-lambat) var(--ease-out);
 }
-.opsi-vote.teratas .opsi-isi-bar {
-  background: var(--accent-tint);
+/* Bar hasil di HP: tint lembut warna kategori, persentasenya pakai warna
+   solidnya supaya tetap terbaca di atas tint. */
+.opsi-vote.warna-1 .opsi-isi-bar {
+  background: #e4e0f5;
+}
+.opsi-vote.warna-1 .opsi-persen {
+  color: var(--kat-biru);
+}
+.opsi-vote.warna-2 .opsi-isi-bar {
+  background: #f8dad9;
+}
+.opsi-vote.warna-2 .opsi-persen {
+  color: var(--kat-merah);
+}
+.opsi-vote.warna-3 .opsi-isi-bar {
+  background: #fcf0b8;
+}
+.opsi-vote.warna-3 .opsi-persen {
+  color: #6b5f00;
+}
+.opsi-vote.warna-4 .opsi-isi-bar {
+  background: #e4ebd3;
+}
+.opsi-vote.warna-4 .opsi-persen {
+  color: var(--kat-hijau);
 }
 .opsi-baris {
   position: relative;
@@ -555,11 +643,11 @@ textarea.input:focus {
 .kuis-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
 }
 .kuis-kotak {
   border-radius: var(--r-md);
-  padding: 22px 14px;
+  padding: 20px 18px;
   min-height: 92px;
   display: flex;
   align-items: center;
@@ -568,12 +656,24 @@ textarea.input:focus {
   font-family: inherit;
   font-weight: 700;
   font-size: 14px;
-  line-height: 1.35;
+  line-height: 1.4;
   border: 1.5px solid transparent;
   cursor: pointer;
   transition: transform var(--dur-sedang) var(--ease-spring),
     box-shadow var(--dur-cepat) ease, opacity var(--dur-sedang) ease,
     filter var(--dur-sedang) ease;
+}
+/* Opsi dengan teks panjang: satu kolom (baris penuh) supaya tidak
+   berdesakan di kotak 2-kolom yang sempit. */
+.kuis-grid.satu-kolom {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.kuis-grid.satu-kolom .kuis-kotak {
+  min-height: 56px;
+  padding: 16px 20px;
+  text-align: left;
+  justify-content: flex-start;
 }
 .kuis-kotak:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.01);
@@ -583,7 +683,7 @@ textarea.input:focus {
 }
 .kuis-kotak.terpilih {
   transform: scale(0.96);
-  box-shadow: 0 0 0 4px rgba(26, 26, 23, 0.85);
+  box-shadow: 0 0 0 4px rgba(2, 1, 0, 0.85);
 }
 .kuis-kotak.redup {
   opacity: 0.32;
@@ -592,35 +692,38 @@ textarea.input:focus {
 .kuis-kotak:disabled {
   cursor: default;
 }
+/* Kartu jawaban: solid empat warna kategori, teks putih. Khusus kuning
+   teksnya digelapkan — putih di atas kuning citrus kontrasnya terlalu tipis
+   untuk dibaca dari jauh (catatan aksesibilitas di PANDUAN_WARNA). */
 .opt-a {
-  background: #e4f9f1;
-  color: #0d7a56;
-  border-color: #bfeedd;
+  background: var(--kat-biru);
+  color: #ffffff;
+  border-color: var(--kat-biru);
 }
 .opt-b {
-  background: #eaf1fb;
-  color: #2c5fa8;
-  border-color: #d2e2f6;
+  background: var(--kat-merah);
+  color: #ffffff;
+  border-color: var(--kat-merah);
 }
 .opt-c {
-  background: #fdf1e4;
-  color: #a6620f;
-  border-color: #f6dfbf;
+  background: var(--kat-kuning);
+  color: var(--kat-kuning-teks);
+  border-color: var(--kat-kuning);
 }
 .opt-d {
-  background: #f7eaf6;
-  color: #8a3e86;
-  border-color: #ead3e8;
+  background: var(--kat-hijau);
+  color: #ffffff;
+  border-color: var(--kat-hijau);
 }
 .opt-e {
-  background: #eef0e2;
-  color: #5c6b2c;
-  border-color: #dde2c8;
+  background: var(--benar);
+  color: #ffffff;
+  border-color: var(--benar);
 }
 .opt-f {
-  background: #f9eaea;
-  color: #a34141;
-  border-color: #f2d5d5;
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
 }
 
 /* Versi papan (layar presenter): kotak jawaban besar, tidak bisa diklik. */
@@ -785,7 +888,7 @@ textarea.input:focus {
   font-weight: 800;
 }
 .papan-baris.juara .papan-peringkat {
-  background: var(--accent);
+  background: var(--juara);
   color: var(--ink);
 }
 .papan-nama {
@@ -808,8 +911,10 @@ textarea.input:focus {
 .papan-baris.juara .papan-poin {
   color: var(--ink);
 }
+/* Sorotan "ini kamu" sengaja kuning, bukan merah/biru — merah dan biru
+   sudah punya arti salah/benar di layar yang sama. */
 .papan-baris.saya {
-  background: var(--accent-tint);
+  background: var(--juara-soft);
   border-radius: var(--r-sm);
   padding-inline: 10px;
 }
@@ -888,14 +993,18 @@ textarea.input:focus {
 }
 .podium-1 .podium-balok {
   height: 128px;
-  background: var(--accent);
+  background: var(--juara);
   color: var(--ink);
 }
 .podium-2 .podium-balok {
   height: 92px;
+  background: var(--kat-biru);
+  color: #ffffff;
 }
 .podium-3 .podium-balok {
   height: 68px;
+  background: var(--kat-hijau);
+  color: #ffffff;
 }
 .podium-1 .podium-nama {
   font-size: 16px;
@@ -907,7 +1016,7 @@ textarea.input:focus {
   color: var(--accent-deep);
 }
 .podium-kolom.saya .podium-balok {
-  box-shadow: inset 0 0 0 3px var(--accent-deep);
+  box-shadow: inset 0 0 0 3px var(--ink);
 }
 .papan-lanjutan {
   max-width: 420px;
@@ -1017,8 +1126,8 @@ textarea.input:focus {
   justify-content: center;
   font-size: 30px;
   font-weight: 800;
-  background: var(--accent-tint);
-  color: var(--accent-deep);
+  background: var(--benar-soft);
+  color: var(--benar);
   animation: munculPop 460ms var(--ease-spring) both;
 }
 .lencana-hasil.salah {
@@ -1042,6 +1151,14 @@ textarea.input:focus {
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+}
+.hitung-mundur-angka {
+  font-size: clamp(64px, 14vw, 160px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--accent-deep);
 }
 
 /* --- Status koneksi ------------------------------------------------------ */
@@ -1106,8 +1223,8 @@ textarea.input:focus {
   max-width: min(360px, 82vw);
 }
 .toast.sukses {
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--benar);
+  color: #ffffff;
 }
 .toast.galat {
   background: var(--danger);
@@ -1223,7 +1340,7 @@ textarea.input:focus {
 
 /* Skeleton saat data pertama kali dimuat, supaya tidak ada layar kosong. */
 .rangka {
-  background: linear-gradient(90deg, var(--surface) 25%, #e9e5da 37%, var(--surface) 63%);
+  background: linear-gradient(90deg, var(--surface) 25%, #e9e9e7 37%, var(--surface) 63%);
   background-size: 400% 100%;
   border-radius: var(--r-sm);
   animation: rangkaGeser 1.3s ease infinite;
@@ -1318,7 +1435,7 @@ textarea.input:focus {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(26, 26, 23, 0.82);
+  background: rgba(2, 1, 0, 0.82);
   cursor: zoom-out;
   animation: qr-lightbox-masuk 160ms ease-out;
 }

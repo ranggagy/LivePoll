@@ -60,7 +60,7 @@ function gambarDaftar() {
     el.className = "daftar-baris";
     el.dataset.kunci = String(q.id);
     if (q.id === sesi.pertanyaan_aktif_id) el.classList.add("berjalan");
-    const detail = [NAMA_TIPE[q.tipe] || q.tipe];
+    const detail = [];
     if (q.tipe === "mc") detail.push(`${q.opsi.length} opsi`);
     if (q.tipe === "rating") detail.push(`skala 1–${q.rating_maks}`);
     if (sesi.mode === "quiz") detail.push(`${q.durasi_detik} detik`);
@@ -69,7 +69,10 @@ function gambarDaftar() {
     el.innerHTML = `
       <div class="tumbuh">
         <div class="daftar-judul">${i + 1}. ${escapeHtml(q.teks)}</div>
-        <div class="tag-tipe">${detail.join(" · ")}</div>
+        <div class="baris baris-rapat mt-8" style="align-items:center">
+          <span class="pil-tipe pil-tipe-${q.tipe}">${NAMA_TIPE[q.tipe] || q.tipe}</span>
+          <span class="tag-tipe">${detail.join(" · ")}</span>
+        </div>
       </div>
       <div class="daftar-aksi">
         <button class="btn btn-ikon btn-garis" data-aksi="naik" title="Naikkan urutan" ${i === 0 ? "disabled" : ""}>↑</button>

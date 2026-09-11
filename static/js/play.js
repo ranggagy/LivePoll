@@ -14,6 +14,8 @@ import {
   CincinTimer,
   KlienSoket,
   KELAS_OPSI,
+  adaOpsiPanjang,
+  gerakDikurangi,
 } from "./common.js";
 
 const akar = document.querySelector("[data-kode]");
@@ -50,13 +52,65 @@ function gambarLobi(pesan = "Tunggu presenter membuka pertanyaan…") {
   tampilkan("lobi", (el) => {
     el.className = "tengah";
     el.innerHTML = `
-      <div class="lencana-hasil" style="background:var(--accent-tint);color:var(--ink)">
+      <div class="lencana-hasil" style="background:var(--surface);color:var(--ink)">
         <span class="titik" style="width:14px;height:14px;border-radius:50%;background:var(--ink);
               animation:denyut 1.8s cubic-bezier(0.65,0,0.35,1) infinite"></span>
       </div>
       <h2 style="font-size:19px">Kamu sudah masuk</h2>
       <p class="muted mt-8">${escapeHtml(pesan)}</p>`;
   });
+}
+
+/* -------------------------------------------------------- Hitung mundur - */
+
+let intervalHitungMundur = null;
+
+/** Soal baru diaktifkan: tampilkan pertanyaannya dulu + hitung mundur —
+    tombol jawaban baru muncul setelah server benar-benar membuka soal. */
+function gambarHitungMundur(pertanyaan, detik) {
+  clearInterval(intervalHitungMundur);
+  timer.sembunyikan();
+  const menunggu = tampilkan(`hitung:${pertanyaan.id}`, (el) => {
+    el.innerHTML = `
+      <div class="baris antara mb-16" style="align-items:center">
+        <span class="chip">Pertanyaan ${pertanyaan.urutan_ke} dari ${pertanyaan.total_soal}</span>
+      </div>
+      <div class="pertanyaan-baris mb-16">
+        ${pertanyaan.gambar ? `<img class="pertanyaan-gambar kecil" src="${pertanyaan.gambar}" alt="">` : ""}
+        <h2 class="tumbuh" style="font-size:19px;line-height:1.3">${escapeHtml(pertanyaan.teks)}</h2>
+      </div>
+      <div class="tengah">
+        <div class="hitung-mundur-angka" id="angka-mundur">${detik}</div>
+        <p class="muted mt-8">Bersiap-siap…</p>
+      </div>`;
+  });
+  const mulai = () => mulaiAnimasiHitungMundur(detik);
+  if (menunggu) menunggu.then(mulai);
+  else mulai();
+}
+
+function mulaiAnimasiHitungMundur(detik) {
+  let sisa = detik;
+  const tampilkanAngka = (n) => {
+    const el = $("#angka-mundur");
+    if (!el) return;
+    el.textContent = String(n);
+    if (!gerakDikurangi()) {
+      el.animate(
+        [{ transform: "scale(1.4)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }],
+        { duration: 380, easing: "cubic-bezier(0.34,1.56,0.64,1)" }
+      );
+    }
+  };
+  tampilkanAngka(sisa);
+  intervalHitungMundur = setInterval(() => {
+    sisa -= 1;
+    if (sisa <= 0) {
+      clearInterval(intervalHitungMundur);
+      return;
+    }
+    tampilkanAngka(sisa);
+  }, 1000);
 }
 
 /* --------------------------------------------------------- Pertanyaan --- */
@@ -100,7 +154,7 @@ function gambarPertanyaan(pertanyaan, sudahMenjawab, jawabanSaya) {
 
 function pasangMC(pertanyaan, area) {
   const kuis = MODE === "quiz";
-  area.className = kuis ? "kuis-grid" : "tumpuk";
+  area.className = kuis ? `kuis-grid${adaOpsiPanjang(pertanyaan.opsi) ? " satu-kolom" : ""}` : "tumpuk";
   area.replaceChildren();
   pertanyaan.opsi.forEach((o, i) => {
     const tombol = document.createElement("button");
@@ -232,7 +286,7 @@ function gambarHasilKuis(pribadi, papan) {
     const menjawab = pribadi && pribadi.menjawab;
     el.innerHTML = `
       <div class="lencana-hasil ${benar ? "" : "salah"}">${benar ? "✓" : menjawab ? "✕" : "—"}</div>
-      <div class="tebal" style="font-size:15px;color:${benar ? "var(--accent-deep)" : "var(--danger)"}">
+      <div class="tebal" style="font-size:15px;color:${benar ? "var(--benar)" : "var(--danger)"}">
         ${benar ? "Jawaban Benar" : menjawab ? "Jawaban Salah" : "Tidak Sempat Menjawab"}
       </div>
       <div class="angka-besar mt-8" id="poin-didapat">+0</div>
@@ -311,9 +365,11 @@ function gambarHasilSurvey(pertanyaan, hasil) {
     if (!wadah || !hasil) return;
     if (hasil.tipe === "mc") {
       const maks = Math.max(...hasil.opsi.map((o) => o.jumlah), 0);
-      hasil.opsi.forEach((o) => {
+      hasil.opsi.forEach((o, i) => {
         const el = document.createElement("div");
-        el.className = "opsi-vote" + (o.jumlah > 0 && o.jumlah === maks ? " teratas" : "");
+        // Warna kategori per opsi, samakan dengan bar di layar presenter.
+        el.className =
+          `opsi-vote warna-${(i % 4) + 1}` + (o.jumlah > 0 && o.jumlah === maks ? " teratas" : "");
         el.innerHTML = `<span class="opsi-isi-bar"></span>
           <span class="opsi-baris"><span>${escapeHtml(o.teks)}</span>
           <span class="opsi-persen">${o.persen}%</span></span>`;
@@ -388,6 +444,9 @@ const soket = new KlienSoket(`/ws/play/${KODE}?token=${encodeURIComponent(tersim
         }
         break;
       }
+      case "hitung_mundur":
+        gambarHitungMundur(pesan.pertanyaan, pesan.detik);
+        break;
       case "pertanyaan_dibuka":
         gambarPertanyaan(pesan.pertanyaan, false, null);
         break;
