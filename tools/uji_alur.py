@@ -20,7 +20,10 @@ JUMLAH_BEBAN = int(sys.argv[2]) if len(sys.argv) > 2 else 150
 # Server jauh (Render) punya latensi jaringan yang tidak ada di localhost,
 # jadi ambang ack dilonggarkan supaya yang dilaporkan gagal benar-benar
 # masalah aplikasi, bukan sekadar jarak ke Singapura.
-BATAS_ACK_DETIK = 2.0 if BASIS.startswith("http://127.0.0.1") or BASIS.startswith("http://localhost") else 5.0
+LOKAL = BASIS.startswith("http://127.0.0.1") or BASIS.startswith("http://localhost")
+BATAS_ACK_DETIK = 2.0 if LOKAL else 5.0
+# Berapa koneksi WebSocket dibuka sekaligus per gelombang saat uji beban.
+GELOMBANG_KONEKSI = 200 if LOKAL else 25
 gagal = 0
 
 
@@ -323,16 +326,26 @@ async def uji_beban(jumlah=JUMLAH_BEBAN):
 
     async with websockets.connect(ws_url(f"/ws/present/{kode}")) as presenter:
         await ambil(presenter, "state")
-        sockets = await asyncio.gather(
-            *(websockets.connect(ws_url(f"/ws/play/{kode}?token={t}"), max_queue=64) for t in token)
-        )
-        await asyncio.gather(*(ambil(ws, "state") for ws in sockets))
+        # Koneksi dibuka bergelombang, bukan sekaligus: di acara sungguhan
+        # peserta masuk berangsur-angsur, dan membuka 200 handshake TLS
+        # serentak ke server jauh cuma menguji antrian handshake-nya, bukan
+        # kemampuan aplikasi. Yang benar-benar harus serentak adalah saat
+        # semua orang menjawab — itu tetap diuji penuh di bawah.
+        sockets = []
+        for mulai_i in range(0, jumlah, GELOMBANG_KONEKSI):
+            bagian = token[mulai_i:mulai_i + GELOMBANG_KONEKSI]
+            sockets.extend(await asyncio.gather(*(
+                websockets.connect(ws_url(f"/ws/play/{kode}?token={t}"), max_queue=64, open_timeout=30)
+                for t in bagian
+            )))
+        await asyncio.gather(*(ambil(ws, "state", batas=20) for ws in sockets))
         print(f"  info  {len(sockets)} koneksi WebSocket aktif")
 
         panggil("POST", f"/api/admin/sesi/{kode}/aktifkan/{q['id']}")
-        buka = await ambil(presenter, "pertanyaan_dibuka")
+        # Soal baru terbuka setelah hitung mundur, jadi batasnya dilonggarkan.
+        buka = await ambil(presenter, "pertanyaan_dibuka", batas=20)
         opsi = buka["pertanyaan"]["opsi"]
-        await asyncio.gather(*(ambil(ws, "pertanyaan_dibuka") for ws in sockets))
+        await asyncio.gather(*(ambil(ws, "pertanyaan_dibuka", batas=20) for ws in sockets))
 
         mulai = asyncio.get_event_loop().time()
 

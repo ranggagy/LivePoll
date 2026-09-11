@@ -13,6 +13,23 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit & push)_
 
+## 2026-09-11 — Uji beban 200 partisipan lolos di Render
+
+Dijalankan ke deployment sungguhan (`live-polling-tz7j.onrender.com`,
+Render free tier + Neon): **semua uji lulus**, 200/200 jawaban di-ack dalam
+**138 ms**, broadcast presenter tetap 1 update (bukan 200).
+
+Percobaan pertama sempat gagal `TimeoutError: timed out during handshake` —
+bukan karena aplikasi, tapi karena skrip membuka 200 handshake WebSocket
+**serentak** ke server jauh. Diperbaiki: koneksi dibuka bergelombang 25
+(`GELOMBANG_KONEKSI`, tetap sekaligus kalau target localhost) dengan
+`open_timeout=30`. Ini juga lebih mirip kenyataan — di acara asli peserta
+masuk berangsur-angsur. Bagian yang memang harus serentak (semua menjawab
+bersamaan) tetap diuji penuh.
+
+Batas tunggu `pertanyaan_dibuka` juga dinaikkan ke 20 detik karena sekarang
+ada hitung mundur 3 detik sebelum soal benar-benar terbuka.
+
 ## 2026-09-11 — Uji beban bisa diatur jumlah partisipannya
 
 `tools/uji_alur.py` sekarang menerima argumen kedua = jumlah partisipan pada
