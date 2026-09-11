@@ -148,7 +148,13 @@ function skalakanPapanUtama() {
     cadanganBawah += kontrol.offsetHeight + parseFloat(gaya.marginTop || "0");
   }
   const tersedia = Math.max(160, window.innerHeight - atas - cadanganBawah);
-  const tinggiBaris = Math.min(150, Math.max(48, tersedia / jumlahBaris));
+  // Sengaja TIDAK ada batas bawah — 10 baris harus selalu muat tanpa scroll,
+  // walau di viewport pendek baris jadi kecil. Batas atas 150px saja, supaya
+  // sedikit peserta tidak jadi raksasa tak wajar. CSS (.papan-baris.besar)
+  // punya floor sendiri yang jauh lebih kecil dari sini, jadi kombinasi
+  // keduanya tetap menyisakan sedikit ruang untuk sesuaikanUkuranPanggung()
+  // membulatkan kalau masih ada selisih kecil.
+  const tinggiBaris = Math.min(150, tersedia / jumlahBaris);
   wadah.style.setProperty("--tinggi-baris", `${tinggiBaris}px`);
 }
 

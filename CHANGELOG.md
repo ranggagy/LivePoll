@@ -13,6 +13,37 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-11 — Bug asli: baris ke-10 leaderboard bisa kepotong di viewport pendek
+
+User minta pastikan 10 baris leaderboard SELALU terlihat penuh di Layar
+Penuh. Diuji dengan viewport pendek (1366×600, simulasi laptop/jendela
+browser rendah) — ternyata memang kepotong.
+
+**Akar masalah**: dua mekanisme shrink yang tidak sinkron. `skalakanPapanUtama()`
+menghitung tinggi baris ideal (`tersedia ÷ 10`) tapi dibatasi floor minimum
+48px — kalau ruang sungguhan kurang dari 480px, baris dipaksa lebih besar
+dari yang muat. `sesuaikanUkuranPanggung()` (scale-down seluruh panel)
+harusnya jadi jaring pengaman, tapi floor skalanya sendiri (0.55x) juga
+tidak cukup rendah untuk kasus ini — dua floor yang independen, saling tidak
+tahu, keduanya kadang sama-sama tidak cukup.
+
+**Perbaikan** ([present.js](static/js/present.js),
+[app.css](static/css/app.css)): floor 48px di `skalakanPapanUtama()`
+dihapus (cuma batas atas 150px yang dipertahankan, supaya sedikit peserta
+tidak jadi raksasa). Floor CSS per elemen (`clamp()` di `.papan-baris.besar`
+untuk circle/font/padding) diturunkan jauh (circle 32px→10px, font
+14-15px→6-7px, padding 8px→1-2px) supaya tinggi baris hasil render CSS
+benar-benar mengikuti `--tinggi-baris` yang dihitung JS, bukan dua-duanya
+punya "pendapat" floor sendiri yang bentrok.
+
+Diverifikasi: viewport 600px tinggi + 10 peserta → `--tinggi-baris` jatuh
+ke ~20px, `sesuaikanUkuranPanggung()` sampai tidak perlu scale sama sekali
+(`transform: none`) karena baris sudah pas dari perhitungan pertama, semua
+10 baris di dalam batas kartu (sebelumnya baris ke-10 nongol ~55px di luar
+kartu, butuh scroll). Diuji ulang juga di 1080p (ukuran wajar) dan dengan
+3 peserta — tidak ada regresi, baris tetap besar mengisi layar seperti
+seharusnya.
+
 ## 2026-09-11 — Bubble ukuran gantian, leaderboard maks 10, muncul otomatis
 
 Tiga request user:

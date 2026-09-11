@@ -988,18 +988,23 @@ textarea.input:focus {
    --tinggi-baris di-set dari JS (present.js: skalakanPapanUtama) sebagai
    ruang tersedia dibagi jumlah baris, jadi ukurannya proporsional: sedikit
    peserta = baris besar mengisi layar, banyak peserta = otomatis mengecil. */
+/* Floor tiap properti sengaja jauh lebih kecil dari kondisi normal — ini
+   jaring pengaman terakhir supaya 10 baris SELALU muat tanpa scroll di
+   viewport paling pendek sekalipun, walau tulisannya jadi kecil. Kondisi
+   normal (viewport wajar) tidak pernah menyentuh floor ini karena
+   --tinggi-baris dari skalakanPapanUtama() sudah dihitung pas. */
 .papan-baris.besar {
-  gap: clamp(10px, calc(var(--tinggi-baris, 70px) * 0.16), 28px);
-  padding-block: clamp(8px, calc(var(--tinggi-baris, 70px) * 0.18), 26px);
+  gap: clamp(2px, calc(var(--tinggi-baris, 70px) * 0.16), 28px);
+  padding-block: clamp(1px, calc(var(--tinggi-baris, 70px) * 0.18), 26px);
 }
 .papan-baris.besar .papan-peringkat {
-  width: clamp(32px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
-  height: clamp(32px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
-  font-size: clamp(14px, calc(var(--tinggi-baris, 70px) * 0.22), 26px);
+  width: clamp(10px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
+  height: clamp(10px, calc(var(--tinggi-baris, 70px) * 0.5), 64px);
+  font-size: clamp(6px, calc(var(--tinggi-baris, 70px) * 0.22), 26px);
 }
 .papan-baris.besar .papan-nama,
 .papan-baris.besar .papan-poin {
-  font-size: clamp(15px, calc(var(--tinggi-baris, 70px) * 0.27), 32px);
+  font-size: clamp(7px, calc(var(--tinggi-baris, 70px) * 0.27), 32px);
 }
 
 .kembang-api-overlay {
