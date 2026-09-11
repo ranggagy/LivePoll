@@ -11,7 +11,54 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 ## Belum di-commit
 
-`tools/uji_edge_case.py` (skrip baru) — belum di-commit.
+_(kosong — semua perubahan terakhir sudah di-commit)_
+
+## 2026-09-11 — Simulasi acara nyata 300 peserta / 5 soal lolos di Render
+
+Skrip baru [tools/uji_simulasi_acara.py](tools/uji_simulasi_acara.py): satu
+alur utuh dari lobi sampai podium (bukan skenario terpisah-pisah), 300
+peserta quiz menjawab 5 soal, dengan berbagai trouble device TERCAMPUR di
+dalamnya — reconnect saat countdown, putus-lalu-sambung mid-soal, jawaban
+dobel, telat menjawab lewat batas waktu, keluar permanen di tengah acara,
+15 peserta baru gabung berangsur di tengah acara, presenter refresh browser
+dan klik dobel aktifkan soal. Dijalankan ke `live-polling-tz7j.onrender.com`:
+
+```bash
+.venv/Scripts/python.exe tools/uji_simulasi_acara.py https://nama-app.onrender.com 300
+```
+
+**Hasil: SEMUA LULUS**, selesai 4m10s. ~285-288 dari 303 peserta menjawab tiap
+soal, broadcast tetap ter-throttle di skala ini, leaderboard & podium akhir
+konsisten, tiap trouble device berperilaku persis sesuai aturan server
+(ditolak/diterima). Aplikasi sendiri tidak menunjukkan bug di uji ini.
+
+**3 bug ditemukan & diperbaiki, tapi di SKRIP UJI-nya sendiri, bukan aplikasi**
+(dicatat supaya tidak terulang kalau nanti nulis skrip beban serupa):
+
+1. Peserta "putus saat countdown" awalnya salah timing — kode menunggu
+   presenter selesai menerima `pertanyaan_dibuka` (yang berarti countdown 3
+   detik sudah lewat) SEBELUM menjalankan aksi peserta, jadi diskoneksi-nya
+   selalu telat. Diperbaiki: presenter-wait dan aksi peserta sekarang jalan
+   bersamaan lewat satu `asyncio.gather`.
+2. **`.send()` WebSocket tanpa timeout bisa menggantung SELAMANYA** kalau satu
+   dari ratusan koneksi diam-diam mati (Render motong koneksi tanpa close
+   frame bersih) — karena ada di dalam `asyncio.gather` bareng peserta lain,
+   satu socket macet cukup untuk menggantung seluruh simulasi (sempat terjadi,
+   proses jalan 30+ menit tanpa progres tanpa CPU aktif). Sekarang semua
+   `send()`/`close()` dibungkus `asyncio.wait_for`, plus watchdog per ronde
+   (`asyncio.timeout(durasi + 30)` per peserta, `durasi + 90` per ronde) supaya
+   satu koneksi bermasalah tidak pernah bisa menggantung keseluruhan proses.
+3. Penutupan ratusan koneksi di akhir dilakukan satu-per-satu (`for p in ...:
+   await p.putus()`) — kalau banyak yang sudah setengah mati, totalnya bisa
+   berkali-kali lipat lebih lama dari perlu. Diperbaiki jadi paralel lewat
+   `asyncio.gather`.
+
+**Catatan penting kalau mau uji beban besar lagi**: kalau proses klien
+dihentikan paksa (mis. `kill`/Ctrl+C) di tengah ratusan koneksi WebSocket
+aktif, instance Render bisa butuh waktu untuk "sadar" semua koneksi itu mati
+(tidak ada close frame bersih) — sempat terjadi endpoint biasa jadi lambat
+selama beberapa saat setelahnya. Kalau harus menghentikan paksa, cek
+`/healthz` dulu sebelum lanjut uji berikutnya.
 
 ## 2026-09-11 — 7 skenario edge case lolos di Render sungguhan
 
