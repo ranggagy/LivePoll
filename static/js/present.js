@@ -173,6 +173,65 @@ function skalakanPapanUtama() {
   wadah.style.setProperty("--tinggi-baris", `${tinggiBaris}px`);
 }
 
+/**
+ * Layar lobi kuis: kotak QR (kiri) dan kotak "Peserta Bergabung" (kanan)
+ * dibuat sama tinggi, pas dengan ruang yang tersisa di layar — supaya
+ * tidak perlu scroll ke bawah untuk melihat kontrol di bawahnya. Beda
+ * dengan sesuaikanUkuranPanggung()/skalakanPapanUtama() (fullscreen-only),
+ * ini jalan di mode windowed biasa juga karena lobi sering dilihat sebelum
+ * presenter masuk Layar Penuh.
+ */
+function sesuaikanLobi() {
+  const panggung = $("#panggung");
+  const kartuQr = panggung ? panggung.querySelector(":scope > .kartu") : null;
+  const kartuPeserta = $("#kartu-peserta-lobi");
+  const wadahPeserta = $("#daftar-peserta-lobi");
+  if (
+    !panggung ||
+    !panggung.classList.contains("tampilan-lobi") ||
+    !kartuQr ||
+    !kartuPeserta ||
+    kartuPeserta.classList.contains("sembunyi")
+  ) {
+    return;
+  }
+
+  kartuQr.style.height = "";
+  kartuPeserta.style.height = "";
+  if (wadahPeserta) {
+    wadahPeserta.style.transform = "";
+    wadahPeserta.style.width = "";
+  }
+
+  const kontrol = $("#kontrol");
+  const atasPanggung = panggung.getBoundingClientRect().top;
+  let cadanganBawah = 24;
+  if (kontrol) {
+    const gaya = getComputedStyle(kontrol);
+    cadanganBawah += kontrol.offsetHeight + parseFloat(gaya.marginTop || "0");
+  }
+  const tersedia = Math.max(260, window.innerHeight - atasPanggung - cadanganBawah);
+  kartuQr.style.height = `${tersedia}px`;
+  kartuPeserta.style.height = `${tersedia}px`;
+
+  if (!wadahPeserta) return;
+  const isiKartu = wadahPeserta.closest(".kartu-isi");
+  const kepala = kartuPeserta.querySelector(".kartu-kepala");
+  const tinggiKepala = kepala ? kepala.offsetHeight : 0;
+  const gayaIsi = isiKartu ? getComputedStyle(isiKartu) : null;
+  const paddingIsi = gayaIsi
+    ? parseFloat(gayaIsi.paddingTop || "0") + parseFloat(gayaIsi.paddingBottom || "0")
+    : 0;
+  const tersediaPeserta = Math.max(60, tersedia - tinggiKepala - paddingIsi);
+  const dibutuhkan = wadahPeserta.scrollHeight;
+  if (dibutuhkan > tersediaPeserta) {
+    const skala = tersediaPeserta / dibutuhkan;
+    wadahPeserta.style.transformOrigin = "top left";
+    wadahPeserta.style.transform = `scale(${skala})`;
+    wadahPeserta.style.width = `${100 / skala}%`;
+  }
+}
+
 // skalakanPapanUtama harus jalan LEBIH DULU: dia menentukan ukuran baris
 // leaderboard, baru sesuaikanUkuranPanggung mengukur apakah hasilnya masih
 // kepanjangan dan perlu di-scale-down lagi.
@@ -180,6 +239,8 @@ document.addEventListener("fullscreenchange", skalakanPapanUtama);
 window.addEventListener("resize", skalakanPapanUtama);
 document.addEventListener("fullscreenchange", sesuaikanUkuranPanggung);
 window.addEventListener("resize", sesuaikanUkuranPanggung);
+document.addEventListener("fullscreenchange", sesuaikanLobi);
+window.addEventListener("resize", sesuaikanLobi);
 // Google Font (Plus Jakarta Sans, display=swap) sering baru selesai dimuat
 // SETELAH render pertama — teks jadi berganti metrik (lebar/tinggi) dan bisa
 // tumbuh lebih tinggi dari yang terukur saat sesuaikanUkuranPanggung() pertama
@@ -345,6 +406,7 @@ function tambahPesertaLobi(pid, nickname) {
   const wadah = $("#daftar-peserta-lobi");
   if (wadah) tambahBubblePeserta(wadah, pid, nickname);
   perbaruiJumlahPeserta();
+  sesuaikanLobi();
 }
 
 /** Layar penutup: sesi sudah berakhir — podium untuk quiz, ucapan terima kasih untuk survey. */
@@ -688,7 +750,22 @@ function rapikanKolom() {
   const samping = $("#samping");
   const adaIsi = $$(".kartu", samping).some((k) => !k.classList.contains("sembunyi"));
   samping.classList.toggle("sembunyi", !adaIsi);
-  $("#panggung").classList.toggle("tanpa-samping", !adaIsi);
+  const panggung = $("#panggung");
+  panggung.classList.toggle("tanpa-samping", !adaIsi);
+
+  // Layar lobi (QR kiri, peserta gabung kanan, 50/50) hanya berlaku selama
+  // kartu peserta itu satu-satunya yang tampil di kolom samping — begitu
+  // soal dibuka atau sesi berakhir, kartu itu disembunyikan dan layar balik
+  // ke proporsi sidebar biasa.
+  const kartuPeserta = $("#kartu-peserta-lobi");
+  const tampilanLobi = !!(kartuPeserta && !kartuPeserta.classList.contains("sembunyi"));
+  panggung.classList.toggle("tampilan-lobi", tampilanLobi);
+  if (tampilanLobi) sesuaikanLobi();
+  else {
+    if (kartuPeserta) kartuPeserta.style.height = "";
+    const kartuQr = panggung.querySelector(":scope > .kartu");
+    if (kartuQr) kartuQr.style.height = "";
+  }
 }
 
 /* --------------------------------------------- Tahap "belum dibuka" ----- */

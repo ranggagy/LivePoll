@@ -1546,6 +1546,26 @@ textarea.input:focus {
 .panggung.tanpa-samping {
   grid-template-columns: minmax(0, 1fr);
 }
+/* Layar lobi kuis (sebelum ada soal dibuka): QR/kode di kiri, peserta
+   gabung di kanan, proporsi 50/50 — beda dari kolom sidebar sempit yang
+   dipakai saat soal berjalan. Tinggi kedua kotak disamakan lewat JS
+   (sesuaikanLobi() di present.js) supaya tidak perlu scroll ke bawah;
+   daftar peserta yang kepanjangan di-skalakan mengecil di dalam kotaknya
+   sendiri, bukan di-scroll. */
+.panggung.tampilan-lobi {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.panggung.tampilan-lobi > .kartu,
+.panggung.tampilan-lobi #kartu-peserta-lobi {
+  display: flex;
+  flex-direction: column;
+}
+.panggung.tampilan-lobi > .kartu > .kartu-isi,
+.panggung.tampilan-lobi #kartu-peserta-lobi > .kartu-isi {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
 .pertanyaan-besar {
   font-size: clamp(24px, 3.4vw, 42px);
   font-weight: 800;

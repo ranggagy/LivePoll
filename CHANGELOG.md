@@ -13,6 +13,37 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Layar lobi presenter dibagi 2 kolom (QR | Peserta Bergabung)
+
+User minta kotak QR dan "Peserta Bergabung" di layar lobi presenter
+dibagi proporsional dan tidak sampai perlu scroll ke bawah — juga
+bertanya kiri-kanan atau atas-bawah yang lebih enak. Direkomendasikan
+**kiri-kanan**: layar presenter/proyektor selalu wide (16:9), jadi
+kiri-kanan memakai lebar itu untuk menampung lebih banyak bubble nama per
+baris (butuh baris jauh lebih sedikit) dibanding atas-bawah yang malah
+mempersempit kotak peserta ke lebar penuh tapi tinggi terbatas.
+
+**Implementasi**: kelas baru `.panggung.tampilan-lobi` (app.css) — grid
+kolom kiri/kanan jadi 50/50 (bukan 1fr/420px seperti tampilan soal
+berjalan), dan `sesuaikanLobi()` (present.js) menghitung ruang yang
+tersisa di viewport (dari atas kotak sampai baris tombol kontrol),
+menyamakan tinggi kedua kotak persis sebesar itu, lalu men-skalakan
+(`transform: scale()`, teknik yang sama dengan anti-potong podium/
+leaderboard sebelumnya) grid bubble peserta supaya muat TANPA scroll
+internal maupun scroll halaman — berapa pun jumlah pesertanya. Kelas &
+fungsi ini otomatis aktif/nonaktif lewat `rapikanKolom()`: aktif selama
+kartu "Peserta Bergabung" itu satu-satunya isi kolom samping (fase lobi),
+otomatis kembali ke proporsi sidebar biasa begitu soal dibuka.
+File: [app.css](static/css/app.css), [present.js](static/js/present.js).
+
+**Verifikasi**: sesi lokal, dites di tiga kondisi — 20 peserta (bubble
+ukuran normal, muat penuh di kedua kotak sama tinggi), 150 peserta
+(bubble otomatis mengecil, `scrollHeight` isi = `clientHeight`-nya persis,
+tidak ada overflow), dan viewport pendek 1600×600 (kedua kotak & bubble
+ikut mengecil lagi, tombol kontrol di bawah tetap kelihatan tanpa
+scroll). Juga dicek transisi ke soal berjalan: kembali ke sidebar sempit
+seperti semula begitu "Soal Berikutnya" diklik.
+
 ## 2026-09-13 — Bubble peserta gabung disamakan ukurannya (tidak acak lagi)
 
 User minta kotak "Peserta Bergabung" rapi — ukuran bubble nama yang acak
