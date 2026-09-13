@@ -1681,6 +1681,64 @@ textarea.input:focus {
   background: var(--kat-hijau);
 }
 
+/* Navigasi halaman daftar peserta (muncul kalau lebih dari 100 orang). */
+.paginasi-peserta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.paginasi-peserta .btn-panah {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--putih);
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--dur-cepat) var(--ease-spring), background var(--dur-cepat) ease;
+}
+.paginasi-peserta .btn-panah:not(:disabled):hover {
+  background: var(--surface);
+  transform: scale(1.08);
+}
+.paginasi-peserta .btn-panah:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.paginasi-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.paginasi-dots .dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--line);
+  cursor: pointer;
+  transition: background var(--dur-cepat) ease, transform var(--dur-cepat) var(--ease-spring);
+}
+.paginasi-dots .dot:hover {
+  background: var(--muted);
+}
+.paginasi-dots .dot.aktif {
+  background: var(--ink);
+  transform: scale(1.35);
+}
+
 /* --- Bingkai HP (halaman partisipan) ------------------------------------- */
 
 .layar-hp {

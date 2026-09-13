@@ -13,6 +13,50 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Paginasi 100/halaman untuk daftar "Peserta Bergabung"
+
+User minta: teks/bubble ukurannya sudah menyesuaikan otomatis (dikonfirmasi
+— itu hasil kerja `sesuaikanLobi()` dari sebelumnya), tapi daripada terus
+mengecil tanpa batas untuk peserta yang sangat banyak, dibatasi 100 per
+halaman dengan navigasi ‹ dots › / klik next. Juga minta ada animasi saat
+peserta baru gabung, dan supaya semua animasi terkait di-cek/dihaluskan.
+
+**Implementasi**: `gambarHalamanPeserta()` (present.js) me-render cuma
+100 peserta per halaman (`UKURAN_HALAMAN_PESERTA`), dengan
+`gambarPaginasiPeserta()` menggambar navigasi ‹ panah + dots › di bawah
+daftar (cuma muncul kalau >1 halaman). Klik dots/panah memicu transisi
+fade-out→fade-in yang halus. Peserta baru yang gabung live: kalau jatuh
+di halaman yang sedang dilihat, ditambahkan dengan animasi pop-in seperti
+biasa (tanpa render ulang semua bubble); kalau di halaman lain, cuma
+titik navigasinya yang bertambah. Angka jumlah peserta di header kartu
+sekarang juga animasi hitung naik (`animasiAngka`), bukan lompat instan.
+File: [present.js](static/js/present.js), [app.css](static/css/app.css).
+
+**2 bug nyata ditemukan & diperbaiki saat verifikasi** (pola yang sama
+persis dengan bug-bug fill-mode/padding sebelumnya di sesi ini):
+1. Transisi fade halaman: animasi fade-IN tidak diberi `fill: "forwards"`,
+   jadi begitu selesai, opacity "kalah" balik ke hasil fade-OUT sebelumnya
+   yang masih menahan opacity:0 (efeknya belum dibatalkan) — bubble halaman
+   baru jadi tidak pernah kelihatan sama sekali walau datanya sudah benar
+   ter-render. Diperbaiki dengan menambah `fill: "forwards"` di situ juga.
+2. `sesuaikanLobi()`: budget tinggi untuk grid bubble belum dikurangi
+   padding vertikal `.kartu-isi` (24px atas+bawah) DAN tinggi navigasi
+   paginasi (termasuk margin-top-nya, yang tidak ikut kehitung di
+   `offsetHeight`) — dua-duanya bikin kartu overflow persis sebesar bagian
+   yang belum dikurangi itu (navigasi ‹ dots › sempat tak kelihatan sama
+   sekali, kepotong di luar kotak). Diperbaiki dengan mengurangi keduanya
+   dari budget sebelum binary search skala bubble jalan.
+
+**Verifikasi**: sesi lokal 250 peserta (3 halaman) — navigasi next/dots
+dites lewat klik sungguhan di browser (bukan `.click()` terprogram, yang
+ternyata tidak selalu representatif karena tab uji sempat di-background
+sehingga timeline animasinya beku — bukan bug aplikasi), tiap halaman
+menampilkan 100/100/50 peserta dengan benar dan `clientHeight`=`scrollHeight`
+persis (tidak overflow, tidak ada ruang kosong). Peserta baru gabung live
+dikonfirmasi masuk ke DOM dengan benar (via screenshot — layar sungguhan
+menampilkan bubble baru penuh warna, walau pembacaan `getComputedStyle`
+sempat menyesatkan karena timeline animasi tab background).
+
 ## 2026-09-13 — Perbaiki bug bubble kekecilan + kotak QR tak perlu setinggi kotak peserta
 
 User kirim screenshot produksi (285 peserta): bubble nama kecil sekali

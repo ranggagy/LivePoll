@@ -33,6 +33,10 @@ let tipeTampil = null;
 
 // Peserta yang sudah gabung (dipakai bubble lobi, urutan waktu join).
 const pesertaGabung = new Map();
+// Daftar peserta dipaginasi 100 per halaman — di atas itu bubble mulai
+// dipaksa terlalu kecil buat tetap muat tanpa scroll (lihat sesuaikanLobi).
+const UKURAN_HALAMAN_PESERTA = 100;
+let halamanPeserta = 0;
 
 // Leaderboard: hasil ditahan sampai presenter memilih untuk melihatnya, dan
 // baru boleh muncul lagi setelah soal berikutnya benar-benar ditutup.
@@ -217,13 +221,33 @@ function sesuaikanLobi() {
   }
   const kepala = kartuPeserta.querySelector(".kartu-kepala");
   const tinggiKepala = kepala ? kepala.offsetHeight : 0;
+  // Navigasi ‹ dots › (kalau ada, karena daftar dipaginasi) ikut makan
+  // jatah ruang di dalam kartu-isi — dikurangi dulu dari budget bubble.
+  // marginTop dihitung terpisah karena offsetHeight TIDAK termasuk margin.
+  const nav = $("#paginasi-peserta");
+  let tinggiNav = 0;
+  if (nav) {
+    const gayaNav = getComputedStyle(nav);
+    tinggiNav = nav.offsetHeight + parseFloat(gayaNav.marginTop || "0");
+  }
+  // BUG NYATA yang sempat kejadian (sama persis dengan kasus podium
+  // sebelumnya): #kartu-isi punya padding vertikal sendiri (.kartu-isi
+  // { padding: 24px 26px }) yang HARUS dikurangi dari budget kontennya —
+  // max-height yang di-set di elemen ini adalah tinggi border-box
+  // (termasuk padding), tapi children di dalamnya (bubble + nav) cuma
+  // punya ruang SISA setelah padding itu. Tanpa dikurangi, target
+  // ruangBubble selalu ~48px lebih longgar dari yang sungguhan tersedia,
+  // jadi kartu-isi jadi overflow persis sebesar padding itu.
+  const gayaIsi = getComputedStyle(isiKartu);
+  const paddingIsi = parseFloat(gayaIsi.paddingTop || "0") + parseFloat(gayaIsi.paddingBottom || "0");
   const batasLayar = Math.max(200, window.innerHeight - atasKartu - cadanganBawah);
-  const batasIsi = Math.max(120, batasLayar - tinggiKepala);
+  const ruangIsi = Math.max(120, batasLayar - tinggiKepala);
+  const ruangBubble = Math.max(60, ruangIsi - paddingIsi - tinggiNav);
 
   // Sudah muat di ukuran normal — biarkan kotak setinggi isinya saja,
   // jangan dipaksa jadi kotak tinggi kosong.
-  if (wadahPeserta.scrollHeight <= batasIsi) {
-    isiKartu.style.maxHeight = `${batasIsi}px`;
+  if (wadahPeserta.scrollHeight <= ruangBubble) {
+    isiKartu.style.maxHeight = `${ruangIsi}px`;
     return;
   }
 
@@ -233,15 +257,15 @@ function sesuaikanLobi() {
   for (let i = 0; i < 8; i++) {
     const tengah = (bawah + atas) / 2;
     wadahPeserta.style.setProperty("--bubble-skala", tengah.toFixed(3));
-    if (wadahPeserta.scrollHeight <= batasIsi) bawah = tengah;
+    if (wadahPeserta.scrollHeight <= ruangBubble) bawah = tengah;
     else atas = tengah;
   }
   wadahPeserta.style.setProperty("--bubble-skala", bawah.toFixed(3));
-  isiKartu.style.maxHeight = `${batasIsi}px`;
+  isiKartu.style.maxHeight = `${ruangIsi}px`;
   // Jaring pengaman kalau peserta ekstrem banyak dan lantai skala masih
   // menyisakan sedikit kelebihan: kotak ini sendiri yang scroll (bukan
   // seluruh halaman) daripada sebagian bubble tak pernah terlihat.
-  isiKartu.style.overflowY = wadahPeserta.scrollHeight > batasIsi ? "auto" : "hidden";
+  isiKartu.style.overflowY = wadahPeserta.scrollHeight > ruangBubble ? "auto" : "hidden";
 }
 
 // skalakanPapanUtama harus jalan LEBIH DULU: dia menentukan ukuran baris
@@ -354,10 +378,17 @@ function gambarLobi() {
   });
 
   if (KUIS) {
-    $("#kartu-peserta-lobi").classList.remove("sembunyi");
-    const wadah = $("#daftar-peserta-lobi");
-    wadah.replaceChildren();
-    pesertaGabung.forEach((nickname, pid) => tambahBubblePeserta(wadah, pid, nickname));
+    const kartuPeserta = $("#kartu-peserta-lobi");
+    // gambarLobi() dipanggil ulang tiap kali presenter resync (WS "sinkron"
+    // — misalnya balik dari tab lain, lihat _sambungUlangSegera di
+    // common.js) walau sudah di layar lobi. Reset ke halaman 1 HANYA kalau
+    // ini genuinely baru masuk ke lobi (sebelumnya "sembunyi") — supaya
+    // presenter yang lagi lihat halaman 2/3 daftar peserta tidak keplanting
+    // balik ke halaman 1 tiap kali dia sempat pindah tab sebentar.
+    const masukBaru = kartuPeserta.classList.contains("sembunyi");
+    kartuPeserta.classList.remove("sembunyi");
+    if (masukBaru) halamanPeserta = 0;
+    gambarHalamanPeserta();
     perbaruiJumlahPeserta();
   }
   rapikanKolom();
@@ -400,25 +431,109 @@ function tambahBubblePeserta(wadah, pid, nickname) {
   el.dataset.pid = String(pid);
   el.textContent = nickname;
   wadah.appendChild(el);
-  el.animate(
-    [{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }],
-    { duration: 320, easing: "cubic-bezier(0.34,1.56,0.64,1)", fill: "backwards" }
-  );
+  if (!gerakDikurangi()) {
+    el.animate(
+      [{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }],
+      { duration: 320, easing: "cubic-bezier(0.34,1.56,0.64,1)", fill: "backwards" }
+    );
+  }
 }
 
 function perbaruiJumlahPeserta() {
   const chip = $("#jumlah-peserta-lobi");
-  if (chip) chip.textContent = String(pesertaGabung.size);
+  if (chip) animasiAngka(chip, pesertaGabung.size, { durasi: 260 });
+}
+
+function totalHalamanPeserta() {
+  return Math.max(1, Math.ceil(pesertaGabung.size / UKURAN_HALAMAN_PESERTA));
+}
+
+/** Render ulang bubble untuk halamanPeserta saat ini (0-based), plus navigasi halamannya. */
+function gambarHalamanPeserta(transisi = false) {
+  const wadah = $("#daftar-peserta-lobi");
+  if (!wadah) return;
+  const total = totalHalamanPeserta();
+  halamanPeserta = Math.min(Math.max(halamanPeserta, 0), total - 1);
+
+  const semua = Array.from(pesertaGabung, ([pid, nickname]) => ({ pid, nickname }));
+  const mulai = halamanPeserta * UKURAN_HALAMAN_PESERTA;
+  const potongan = semua.slice(mulai, mulai + UKURAN_HALAMAN_PESERTA);
+
+  const render = () => {
+    wadah.replaceChildren();
+    potongan.forEach(({ pid, nickname }) => tambahBubblePeserta(wadah, pid, nickname));
+    gambarPaginasiPeserta(total);
+    sesuaikanLobi();
+  };
+
+  // Transisi halus cuma dipakai saat pindah halaman lewat klik (bukan saat
+  // render pertama kali) — supaya pergantian isi terasa mulus, bukan
+  // "loncat" mengganti semua bubble sekaligus.
+  if (transisi && !gerakDikurangi()) {
+    wadah.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-in", fill: "forwards" }).onfinish =
+      () => {
+        render();
+        // fill "forwards" WAJIB di sini juga — animasi fade-out sebelumnya
+        // masih menahan opacity:0 (efeknya belum dibatalkan), jadi tanpa
+        // fill di fade-in ini, begitu animasinya selesai opacity balik
+        // "menang" ke hasil animasi SEBELUMNYA (0) dan bubble-nya jadi tak
+        // pernah kelihatan lagi walau datanya sudah benar ter-render.
+        wadah.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out", fill: "forwards" });
+      };
+  } else {
+    render();
+  }
+}
+
+/** Navigasi ‹ dots › di bawah daftar peserta — cuma tampil kalau lebih dari satu halaman. */
+function gambarPaginasiPeserta(total) {
+  const isiKartu = $("#kartu-peserta-lobi .kartu-isi");
+  let nav = $("#paginasi-peserta");
+  if (total <= 1) {
+    if (nav) nav.remove();
+    return;
+  }
+  if (!nav) {
+    nav = document.createElement("div");
+    nav.className = "paginasi-peserta";
+    nav.id = "paginasi-peserta";
+    isiKartu.appendChild(nav);
+  }
+  const ganti = (h) => {
+    halamanPeserta = h;
+    gambarHalamanPeserta(true);
+  };
+  nav.innerHTML = `
+    <button class="btn-panah" id="btn-peserta-sebelum" ${halamanPeserta === 0 ? "disabled" : ""} aria-label="Halaman sebelumnya">‹</button>
+    <div class="paginasi-dots">
+      ${Array.from({ length: total }, (_, i) => `<button class="dot${i === halamanPeserta ? " aktif" : ""}" data-halaman="${i}" aria-label="Halaman ${i + 1}"></button>`).join("")}
+    </div>
+    <button class="btn-panah" id="btn-peserta-berikut" ${halamanPeserta === total - 1 ? "disabled" : ""} aria-label="Halaman berikutnya">›</button>`;
+  const sebelum = $("#btn-peserta-sebelum", nav);
+  if (sebelum) sebelum.addEventListener("click", () => ganti(Math.max(0, halamanPeserta - 1)));
+  const berikut = $("#btn-peserta-berikut", nav);
+  if (berikut) berikut.addEventListener("click", () => ganti(Math.min(total - 1, halamanPeserta + 1)));
+  $$(".dot", nav).forEach((d) => d.addEventListener("click", () => ganti(Number(d.dataset.halaman))));
 }
 
 /** Peserta baru gabung: simpan, dan tampilkan bubble kalau presenter sedang di layar lobi. */
 function tambahPesertaLobi(pid, nickname) {
   if (pesertaGabung.has(pid)) return;
   pesertaGabung.set(pid, nickname);
-  const wadah = $("#daftar-peserta-lobi");
-  if (wadah) tambahBubblePeserta(wadah, pid, nickname);
   perbaruiJumlahPeserta();
-  sesuaikanLobi();
+
+  // Cuma perlu render bubble barunya kalau dia jatuh di halaman yang
+  // sedang dilihat presenter — kalau di halaman lain, cukup titik
+  // navigasinya saja yang diperbarui (jumlah halaman mungkin bertambah).
+  const indeks = pesertaGabung.size - 1;
+  const halamanTujuan = Math.floor(indeks / UKURAN_HALAMAN_PESERTA);
+  const total = totalHalamanPeserta();
+  gambarPaginasiPeserta(total);
+  if (halamanTujuan === halamanPeserta) {
+    const wadah = $("#daftar-peserta-lobi");
+    if (wadah) tambahBubblePeserta(wadah, pid, nickname);
+    sesuaikanLobi();
+  }
 }
 
 /** Layar penutup: sesi sudah berakhir — podium untuk quiz, ucapan terima kasih untuk survey. */
