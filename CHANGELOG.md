@@ -13,6 +13,29 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — "Berita" siapa naik peringkat paling signifikan di leaderboard
+
+User minta tambahan kecil di panel leaderboard presenter: selain animasi
+FLIP pindah posisi, tampilkan satu baris berita singkat siapa yang naik
+paling signifikan.
+
+**Implementasi**: `tampilkanBeritaKenaikan()` (present.js), dipanggil dari
+`isiPapanUtama()` — memakai data yang SAMA dengan yang sudah dihitung
+untuk FLIP (`urutanPapanSebelumnya`, urutan participant_id dari render
+sebelumnya) untuk mencari siapa yang selisih indeksnya (lama - baru)
+PALING BESAR dan positif. Kalau kenaikannya ≥2 peringkat, tampilkan chip
+kuning "🚀 {nama} melesat naik N peringkat!" di sebelah chip "Leaderboard"
+dengan animasi pop-in; kalau tidak ada yang naik signifikan (termasuk
+render pertama kali, belum ada pembanding), chip disembunyikan. Ambang
+2 peringkat sengaja dipasang supaya cuma lonjakan yang beneran berarti
+yang diumumkan, bukan pergeseran 1 posisi yang biasa terjadi tiap soal.
+File: [present.js](static/js/present.js), [app.css](static/css/app.css).
+
+**Verifikasi**: sesi lokal 2 soal, 5 peserta — urutan jawab soal 2
+dibalik supaya P5 (tadinya peringkat 5) melompat ke depan. Leaderboard
+soal 2 menampilkan "🚀 P5 melesat naik 3 peringkat!" tepat di sebelah
+chip Leaderboard, terkonfirmasi lewat screenshot.
+
 ## 2026-09-14 — Animasi geser leaderboard tetap jalan antar soal
 
 Setelah demo sebelumnya, ketahuan animasi FLIP (baris "geser" pindah

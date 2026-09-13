@@ -933,6 +933,20 @@ textarea.input:focus {
   border-radius: var(--r-sm);
   padding-inline: 10px;
 }
+/* "Berita" siapa naik peringkat paling signifikan, di kepala panel
+   leaderboard utama (lihat tampilkanBeritaKenaikan() di present.js). */
+.papan-berita {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent-deep);
+  background: var(--juara-soft);
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 65%;
+}
 
 /* Varian panel utama presenter (leaderboard full-screen, bukan sidebar).
    --tinggi-baris di-set dari JS (present.js: skalakanPapanUtama) sebagai

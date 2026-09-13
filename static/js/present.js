@@ -894,7 +894,10 @@ function gambarPapanUtama(papan) {
   gantiTampilan(isi, () => {
     const el = document.createElement("div");
     el.innerHTML = `
-      <div class="chip chip-aksen mb-16">Leaderboard</div>
+      <div class="baris antara mb-16" style="align-items:center">
+        <div class="chip chip-aksen">Leaderboard</div>
+        <div class="papan-berita sembunyi" id="papan-berita"></div>
+      </div>
       <div id="papan-utama-isi"></div>`;
     return el;
   }).then(() => isiPapanUtama(papan));
@@ -951,7 +954,38 @@ function isiPapanUtama(papan) {
     // yang masih diingat, bukan cuma langsung muncul di urutan barunya.
     mainkanFlipSimulasi(urut, urutanPapanSebelumnya);
   }
+  tampilkanBeritaKenaikan(papan, urutanPapanSebelumnya);
   urutanPapanSebelumnya = papan.baris.map((b) => String(b.participant_id));
+}
+
+/** "Berita" satu baris di kepala panel: siapa yang naik peringkat paling signifikan sejak update terakhir. */
+function tampilkanBeritaKenaikan(papan, urutanLama) {
+  const el = $("#papan-berita");
+  if (!el) return;
+  let terbaik = null; // { nickname, naik }
+  if (urutanLama.length) {
+    papan.baris.forEach((b, indeksBaru) => {
+      const indeksLama = urutanLama.indexOf(String(b.participant_id));
+      if (indeksLama === -1) return;
+      const naik = indeksLama - indeksBaru;
+      if (naik > 0 && (!terbaik || naik > terbaik.naik)) terbaik = { nickname: b.nickname, naik };
+    });
+  }
+  // Ambang 2 peringkat — supaya cuma lonjakan yang beneran berarti yang
+  // diumumkan, bukan tiap pergeseran 1 posisi yang biasa terjadi tiap soal.
+  if (!terbaik || terbaik.naik < 2) {
+    el.classList.add("sembunyi");
+    return;
+  }
+  el.textContent = `🚀 ${terbaik.nickname} melesat naik ${terbaik.naik} peringkat!`;
+  const baruMuncul = el.classList.contains("sembunyi");
+  el.classList.remove("sembunyi");
+  if (baruMuncul && !gerakDikurangi()) {
+    el.animate(
+      [{ opacity: 0, transform: "translateX(8px) scale(0.95)" }, { opacity: 1, transform: "none" }],
+      { duration: 320, easing: "cubic-bezier(0.34,1.56,0.64,1)", fill: "backwards" }
+    );
+  }
 }
 
 /**
