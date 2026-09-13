@@ -13,6 +13,40 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Label tombol "Mulai"/"Lihat Hasil" + animasi pilihan jawaban
+
+User minta: tombol "Soal Berikutnya" ganti jadi "Mulai" sebelum soal
+pertama dibuka, dan ganti jadi "Hasil" di soal terakhir (bukan "Soal
+Berikutnya" lagi) — karena klik tombol itu di soal terakhir sebenarnya
+memang mengakhiri sesi (`hasil.habis` di handler klik memicu `/akhiri`
+otomatis, lihat present.js:1169 area), jadi labelnya perlu mencerminkan
+itu. Juga: transisi dari hitung mundur ke pilihan jawaban kerasa seperti
+"refresh" mendadak, minta dianimasikan smooth.
+
+**Implementasi**:
+- `sinkronkanKontrolSoal()` (present.js) sekarang mengatur teks
+  `#btn-berikutnya` tiap kali soal aktif berubah: "Lihat Hasil →" kalau
+  `urutan_ke >= total_soal` (soal terakhir), else "Soal Berikutnya →".
+- `terapkanPertanyaan(null, ...)` (kondisi lobi, belum ada soal dibuka)
+  set teksnya jadi "Mulai →", termasuk teks hint QR-nya ("Klik 'Mulai'
+  untuk memulai"). Default HTML awal di `present.html` juga diubah ke
+  "Mulai →" (dulu "Soal Berikutnya →") supaya tidak sempat kelihatan
+  salah sebelum WS pertama kali konek.
+- `gambarOpsiKuis()`: tiap kotak jawaban sekarang masuk satu-satu dengan
+  animasi pop-in beranting (translateY+scale+opacity, delay 70ms/kotak) —
+  sebelumnya kotak-kotak itu langsung muncul utuh begitu saja mengikuti
+  fade panel dari `gantiTampilan`, jadi kerasa seperti konten "melompat"
+  ganti sekaligus alih-alih transisi hidup. Pola sama dengan
+  `pasangMC` di play.js (HP peserta) yang sudah lebih dulu punya ini.
+
+File: [present.js](static/js/present.js), [present.html](templates/present.html).
+
+**Verifikasi**: sesi lokal 2 soal — dicek label tombol di tiap tahap:
+lobi → "Mulai →", soal 1/2 → "Soal Berikutnya →", soal 2/2 (terakhir) →
+"Lihat Hasil →", diklik → sesi benar berakhir ("Sesi telah berakhir").
+Transisi countdown→pilihan jawaban dicek via screenshot: kotak jawaban
+kelihatan fade+slide masuk bertahap, bukan langsung utuh sekaligus.
+
 ## 2026-09-13 — Paginasi 100/halaman untuk daftar "Peserta Bergabung"
 
 User minta: teks/bubble ukurannya sudah menyesuaikan otomatis (dikonfirmasi

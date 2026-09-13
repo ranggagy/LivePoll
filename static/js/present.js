@@ -369,7 +369,7 @@ function gambarLobi() {
           <div class="muted mt-8" style="overflow-wrap:anywhere">${escapeHtml(TAUTAN)}</div>
         </div>
       </div>
-      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Soal Berikutnya” untuk memulai.</p>`;
+      <p class="muted mt-24">Belum ada pertanyaan yang dibuka. Klik “Mulai” untuk memulai.</p>`;
     return el;
   }).then(() => {
     const qr = $("#qr-img");
@@ -950,6 +950,16 @@ function gambarOpsiKuis(hasil) {
       kotak.className = `kuis-kotak papan ${KELAS_OPSI[i % KELAS_OPSI.length]}`;
       kotak.textContent = o.teks;
       grid.appendChild(kotak);
+      // Kotak jawaban masuk satu per satu (bukan cuma ikut fade seluruh
+      // panel dari gantiTampilan) — supaya transisi dari hitung mundur ke
+      // pilihan jawaban kerasa hidup/smooth, bukan seperti layar "refresh"
+      // tiba-tiba berganti isi.
+      if (!gerakDikurangi()) {
+        kotak.animate(
+          [{ opacity: 0, transform: "translateY(14px) scale(0.96)" }, { opacity: 1, transform: "none" }],
+          { duration: 340, delay: i * 70, easing: "cubic-bezier(0.34,1.56,0.64,1)", fill: "backwards" }
+        );
+      }
     });
     panel.appendChild(grid);
     const kaki = document.createElement("div");
@@ -1025,6 +1035,8 @@ function terapkanPertanyaan(pertanyaan, hasil, moderasi, baruDibuka = false) {
     gambarLobi();
     gambarModerasi(null);
     $("#btn-tutup").disabled = true;
+    const tombolBerikutnya = $("#btn-berikutnya");
+    if (tombolBerikutnya) tombolBerikutnya.textContent = "Mulai →";
     return;
   }
   const kartuPeserta = $("#kartu-peserta-lobi");
@@ -1079,6 +1091,14 @@ function sinkronkanKontrolSoal(pertanyaan) {
     timer.mulai(pertanyaan.sisa_ms, pertanyaan.durasi);
   } else {
     timer.sembunyikan();
+  }
+  // Soal terakhir: klik tombol ini sebenarnya mengakhiri sesi (lihat
+  // handler #btn-berikutnya — hasil.habis memicu /akhiri otomatis), jadi
+  // labelnya diganti supaya presenter tahu apa yang bakal terjadi.
+  const tombolBerikutnya = $("#btn-berikutnya");
+  if (tombolBerikutnya) {
+    const soalTerakhir = pertanyaan.total_soal != null && pertanyaan.urutan_ke >= pertanyaan.total_soal;
+    tombolBerikutnya.textContent = soalTerakhir ? "Lihat Hasil →" : "Soal Berikutnya →";
   }
 }
 
