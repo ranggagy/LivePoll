@@ -13,6 +13,40 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Animasi geser leaderboard tetap jalan antar soal
+
+Setelah demo sebelumnya, ketahuan animasi FLIP (baris "geser" pindah
+peringkat) di panel "Lihat Leaderboard" presenter cuma jalan kalau
+panelnya TIDAK sempat ditutup — begitu presenter pindah ke soal
+berikutnya (layar berganti ke hitung mundur/pertanyaan) lalu balik lagi
+ke leaderboard, baris-baris lama sudah tidak ada di DOM, jadi
+`rekamPosisi()` tidak menemukan posisi aslinya untuk di-FLIP — leaderboard
+baru cuma "muncul" langsung di urutan barunya, tidak kelihatan bergeser.
+
+**Perbaikan**: `isiPapanUtama()` (present.js) sekarang menyimpan urutan
+`participant_id` dari render TERAKHIR ke variabel modul
+`urutanPapanSebelumnya`, terlepas dari apakah baris DOM lama masih ada.
+Kalau posisi DOM asli tidak ada (`rekamPosisi` kosong) tapi urutan
+sebelumnya masih diingat, dipakai `mainkanFlipSimulasi()` — fungsi baru
+yang menghitung delta dari SELISIH INDEKS peringkat (bukan posisi piksel
+yang diukur), dikalikan tinggi baris saat ini, lalu menerapkan teknik
+FLIP yang sama (snap tanpa transisi → lepas ke transisi CSS bawaan
+`.papan-baris`). Kalau posisi DOM asli masih ada (leaderboard tidak
+sempat ditutup di antara update), tetap pakai `mainkanFlip()` yang lama
+seperti biasa. File: [present.js](static/js/present.js).
+
+**Verifikasi**: sesi lokal 2 soal, 5 peserta, urutan jawab dibalik total
+di soal 2 supaya peringkat benar-benar berpindah. Sempat dites lewat
+polling `getComputedStyle().transform` tapi tidak menangkap apa-apa —
+ternyata setInterval/requestAnimationFrame di tab yang di-background
+pada sandbox uji ini ikut tersendat (tema berulang di sesi ini), BUKAN
+tanda animasinya tidak jalan. Dikonfirmasi definitif lewat
+`console.log` sementara di dalam `mainkanFlipSimulasi()`: peserta yang
+naik dari indeks 2 ke indeks 0 (dan pergeseran lain yang masuk akal)
+benar-benar terhitung dan diterapkan — log dihapus lagi setelah
+terverifikasi. Screenshot akhir juga mengonfirmasi urutan baru menetap
+tanpa artefak visual.
+
 ## 2026-09-14 — Reveal podium bertahap: juara #1 diumumkan terakhir
 
 User minta layar "Kuis Telah Berakhir!" di presenter tidak langsung

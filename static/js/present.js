@@ -44,6 +44,12 @@ let papanTerakhir = null;
 let pertanyaanTerakhir = null;
 let modeTampilan = "hasil"; // "hasil" | "leaderboard"
 let timerLeaderboardOtomatis = null; // jeda 3 detik sebelum leaderboard tampil sendiri setelah soal ditutup
+// Urutan participant_id dari render leaderboard TERAKHIR (soal manapun) —
+// dipakai isiPapanUtama() untuk tetap menganimasikan baris "pindah posisi"
+// walau panelnya sempat ditutup/dibuka ulang lewat soal lain di antaranya
+// (baris DOM lama sudah tidak ada lagi saat itu, jadi tidak bisa diukur
+// posisi aslinya seperti FLIP biasa — lihat mainkanFlipSimulasi()).
+let urutanPapanSebelumnya = [];
 
 function batalkanLeaderboardOtomatis() {
   clearTimeout(timerLeaderboardOtomatis);
@@ -907,7 +913,9 @@ function isiPapanUtama(papan) {
   const kosong = wadah.querySelector(".kosong");
   if (kosong) kosong.remove();
 
-  const sebelum = rekamPosisi($$(".papan-baris", wadah));
+  // Posisi DOM asli — cuma ada isinya kalau baris-baris lama masih di
+  // panel yang sama (mis. update poin datang selagi leaderboard terbuka).
+  const sebelumDom = rekamPosisi($$(".papan-baris", wadah));
   const urut = [];
   papan.baris.forEach((b) => {
     let el = wadah.querySelector(`[data-kunci="${b.participant_id}"]`);
@@ -929,9 +937,51 @@ function isiPapanUtama(papan) {
   $$(".papan-baris", wadah).forEach((el) => {
     if (!urut.includes(el)) el.remove();
   });
-  mainkanFlip(urut, sebelum);
   skalakanPapanUtama();
   sesuaikanUkuranPanggung();
+
+  if (sebelumDom.size) {
+    // Kasus biasa: panel sudah terbuka dan datanya baru saja diperbarui —
+    // FLIP dari posisi DOM yang sungguhan terukur.
+    mainkanFlip(urut, sebelumDom);
+  } else if (urutanPapanSebelumnya.length) {
+    // Panel baru saja dibuka/dibuka-ulang (baris lama sudah tidak ada,
+    // biasanya karena sempat pindah ke layar soal berikutnya) — tetap
+    // animasikan "pindah posisi" berdasarkan urutan peringkat TERAKHIR
+    // yang masih diingat, bukan cuma langsung muncul di urutan barunya.
+    mainkanFlipSimulasi(urut, urutanPapanSebelumnya);
+  }
+  urutanPapanSebelumnya = papan.baris.map((b) => String(b.participant_id));
+}
+
+/**
+ * Seperti mainkanFlip (common.js), tapi delta-nya dihitung dari SIMULASI
+ * urutan lama (array kunci, bukan posisi DOM asli yang sungguhan diukur) —
+ * dipakai saat baris-baris sebelumnya sudah tidak ada di DOM lagi (lihat
+ * pemanggil di atas). Baris yang naik/turun N peringkat "meluncur" sejauh
+ * N kali tinggi barisnya sendiri, memakai teknik FLIP yang sama (snap ke
+ * posisi lama tanpa transisi, lalu lepas ke transisi CSS bawaan
+ * `.papan-baris`) supaya gerakannya identik dengan FLIP biasa.
+ */
+function mainkanFlipSimulasi(elemenBaru, urutanLama) {
+  if (gerakDikurangi() || !elemenBaru.length) return;
+  const tinggiBaris = elemenBaru[0].getBoundingClientRect().height;
+  if (!tinggiBaris) return;
+  elemenBaru.forEach((el, indeksBaru) => {
+    const indeksLama = urutanLama.indexOf(el.dataset.kunci);
+    if (indeksLama === -1 || indeksLama === indeksBaru) return;
+    const delta = (indeksLama - indeksBaru) * tinggiBaris;
+    el.style.transition = "none";
+    el.style.transform = `translateY(${delta}px)`;
+    const lepas = () => {
+      el.style.transition = "";
+      el.style.transform = "";
+    };
+    requestAnimationFrame(lepas);
+    // Jaring pengaman: tanpa ini baris bisa tertinggal tergeser kalau rAF
+    // tidak pernah dipanggil (panel/tab tidak digambar).
+    setTimeout(lepas, 60);
+  });
 }
 
 /** Simpan leaderboard terbaru dan aktifkan/nonaktifkan tombol sesuai ketersediaan data. */
