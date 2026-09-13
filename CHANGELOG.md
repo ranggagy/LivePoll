@@ -13,6 +13,19 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Bubble peserta gabung disamakan ukurannya (tidak acak lagi)
+
+User minta kotak "Peserta Bergabung" rapi — ukuran bubble nama yang acak
+(3 tingkat, ditambah jitter posisi vertikal) dianggap berantakan.
+Dihapus: variasi ukuran (`ukuran-1/2/3`) dan jitter `marginTop` acak di
+`tambahBubblePeserta()` (present.js) beserta CSS-nya. Warna tetap digilir
+4 warna kategori (yang diminta cuma ukurannya, bukan warnanya) supaya
+lobi tetap terasa hidup. File: [present.js](static/js/present.js),
+[app.css](static/css/app.css).
+
+Verifikasi: sesi lokal 12 partisipan, semua bubble tampil ukuran sama
+rapi berbaris di viewport 1600px lebar.
+
 ## 2026-09-13 — Perlambat reveal HP, besarkan kotak peserta gabung, judul bisa diubah
 
 Tiga permintaan sekaligus dari screenshot layar presenter + feedback soal

@@ -319,18 +319,13 @@ function hashKecil(n, garam) {
 function tambahBubblePeserta(wadah, pid, nickname) {
   if (wadah.querySelector(`[data-pid="${pid}"]`)) return;
   const el = document.createElement("span");
-  // Warna, ukuran, dan jitter posisi masing-masing dari hash yang beda garam
-  // supaya tidak berkorelasi satu sama lain — hasilnya terasa acak/organik,
-  // tapi tetap konsisten untuk id yang sama tiap render ulang (bukan berubah
-  // tiap kali, dan sengaja tidak ada ukuran yang jauh lebih besar dari yang
-  // lain supaya tidak ada satu bubble yang mendominasi).
+  // Cuma warna yang digilir (4 warna kategori) supaya lobi tetap hidup —
+  // ukurannya seragam kecil supaya daftar rapi seperti daftar nama biasa,
+  // bukan tag cloud acak. Tetap konsisten untuk id yang sama tiap render ulang.
   const warna = (hashKecil(pid, 1) % 4) + 1;
-  const ukuran = (hashKecil(pid, 2) % 3) + 1;
-  const jitter = (hashKecil(pid, 3) % 13) - 6; // -6px..+6px
-  el.className = `chip peserta-chip warna-${warna} ukuran-${ukuran}`;
+  el.className = `chip peserta-chip warna-${warna}`;
   el.dataset.pid = String(pid);
   el.textContent = nickname;
-  el.style.marginTop = `${jitter}px`;
   wadah.appendChild(el);
   el.animate(
     [{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }],
