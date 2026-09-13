@@ -1044,6 +1044,25 @@ textarea.input:focus {
   margin: 0 auto;
   text-align: left;
 }
+/* Teks jeda sebelum juara #1 diungkap (mainkanRevealPodium di present.js). */
+.podium-suspense {
+  text-align: center;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--accent-deep);
+  margin-bottom: 16px;
+  animation: podiumSuspenseDenyut 900ms ease-in-out infinite;
+}
+@keyframes podiumSuspenseDenyut {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
 /* Layar Penuh presenter: podium & tabel peringkat 4-10 ditumpuk vertikal
    secara default, yang gampang kepotong di viewport pendek (banyak nama =
    tabel tinggi). Di Layar Penuh, susun berdampingan (podium kiri, tabel

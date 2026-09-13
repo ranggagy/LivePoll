@@ -13,6 +13,44 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Reveal podium bertahap: juara #1 diumumkan terakhir
+
+User minta layar "Kuis Telah Berakhir!" di presenter tidak langsung
+menampilkan semua orang sekaligus — juara harus terasa seperti
+"diumumkan", bukan cuma langsung kelihatan. Rencana sempat didiskusikan
+dulu sebelum implementasi (scope: presenter only, bukan HP peserta).
+
+**Urutan reveal baru** (`mainkanRevealPodium()`, present.js), dipanggil
+dari `gambarSesiSelesai()` menggantikan podium yang dulu muncul instan:
+1. Tabel peringkat 4-10 fade-in satu-satu dari BAWAH ke ATAS (10→4),
+   cepat (90ms/baris) — cuma pemanasan.
+2. 🥉 peringkat 3 pop-in.
+3. 🥈 peringkat 2 pop-in.
+4. Jeda teks "🥁 Dan juaranya adalah…" (berdenyut pelan) ±1.3 detik.
+5. 🥇 peringkat 1 pop-in — confetti (`mainkanKembangApi()`) dipindah ke
+   PERSIS momen ini (dulu langsung meletus di awal layar terbuka).
+
+Total ±4 detik. `prefers-reduced-motion` melewati semuanya, langsung ke
+kondisi akhir (konsisten dengan pola di seluruh app ini).
+File: [present.js](static/js/present.js), [app.css](static/css/app.css).
+
+**Bug ditemukan+diperbaiki saat verifikasi**: baris tabel (`.papan-baris`)
+punya CSS `transition: opacity ...` sendiri (dipakai FLIP leaderboard di
+tempat lain) yang ikut bereaksi begitu opacity-nya diubah lewat inline
+style — BEREBUTAN dengan `animate()` buat reveal ini, hasilnya baris
+tabel balik tak kelihatan lagi (kolom podium tidak kena karena tidak
+punya transition serupa). Diperbaiki dengan `el.style.transition =
+"none"` sebelum memanipulasi opacity-nya lewat animate().
+
+**Verifikasi**: sesi lokal 10 peserta (skrip Python + websockets,
+dihapus setelah dipakai) sampai sesi berakhir sungguhan. Dicek: (a)
+sebelum fix, baris tabel diam di opacity 0 selamanya (bug); (b) sesudah
+fix, screenshot saat sesi baru berakhir menangkap confetti masih jatuh
++ podium & tabel semua sudah terungkap dengan benar. Catatan uji: tab
+browser yang di-background bikin timeline animasi CSS/WAAPI beku
+(`getComputedStyle` jadi menyesatkan) — verifikasi akhir dilakukan
+dengan tab tetap di depan (fronted) sepanjang sesi presenter berjalan.
+
 ## 2026-09-14 — Label tombol "Mulai"/"Lihat Hasil" + animasi pilihan jawaban
 
 User minta: tombol "Soal Berikutnya" ganti jadi "Mulai" sebelum soal

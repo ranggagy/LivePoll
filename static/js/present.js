@@ -571,10 +571,83 @@ function gambarSesiSelesai(sesi, leaderboard) {
     }
     return el;
   }).then(() => {
-    if (adaPodium) $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard, null, true);
-    sesuaikanUkuranPanggung();
+    if (adaPodium) {
+      $("#podium-wadah").innerHTML = bangunPodiumHtml(leaderboard, null, true);
+      sesuaikanUkuranPanggung();
+      mainkanRevealPodium();
+    } else {
+      sesuaikanUkuranPanggung();
+    }
   });
-  if (adaPodium) mainkanKembangApi();
+}
+
+/**
+ * Ungkap podium bertahap alih-alih langsung muncul semua sekaligus: tabel
+ * peringkat 10 → 4 fade-in satu-satu (cepat), lalu podium 🥉 → 🥈, jeda
+ * "Dan juaranya adalah…", baru 🥇 muncul berbarengan dengan confetti —
+ * jadi juara #1 memang yang terakhir diumumkan, bukan langsung kelihatan
+ * sejak awal layar ini terbuka.
+ */
+function mainkanRevealPodium() {
+  const wadah = $("#podium-wadah");
+  if (!wadah) return;
+  const baris = $$(".papan-lanjutan .papan-baris", wadah); // urutan peringkat 4→10 (menaik)
+  const kolom3 = wadah.querySelector(".podium-3");
+  const kolom2 = wadah.querySelector(".podium-2");
+  const kolom1 = wadah.querySelector(".podium-1");
+
+  if (gerakDikurangi()) {
+    mainkanKembangApi();
+    return;
+  }
+
+  const masuk = (el, { durasi = 220, geser = 8, easing = "ease-out" } = {}) => {
+    if (!el) return;
+    // .papan-baris (baris tabel) punya CSS "transition: opacity ..." sendiri
+    // (dipakai FLIP leaderboard di tempat lain) — kalau dibiarkan, transisi
+    // itu ikut bereaksi setiap opacity-nya diubah lewat inline style dan
+    // BEREBUTAN sama animate() di bawah, hasilnya baris ini balik tak
+    // kelihatan lagi (kalah dari transisi CSS-nya sendiri). Matikan dulu
+    // transition-nya supaya cuma animate() ini yang mengontrol opacity.
+    el.style.transition = "none";
+    el.style.opacity = "0";
+    el.animate(
+      [{ opacity: 0, transform: `translateY(${geser}px) scale(0.94)` }, { opacity: 1, transform: "none" }],
+      { duration: durasi, easing, fill: "forwards" }
+    );
+  };
+
+  // Tabel diungkap dari peringkat TERBAWAH ke atas (10 → 4), cepat —
+  // ini cuma pemanasan sebelum podium, jadi tidak perlu jeda lama.
+  const JEDA_BARIS = 90;
+  [...baris].reverse().forEach((el, i) => {
+    el.style.transition = "none";
+    el.style.opacity = "0";
+    setTimeout(() => masuk(el, { durasi: 200, geser: 6 }), i * JEDA_BARIS);
+  });
+  let t = baris.length * JEDA_BARIS + 150;
+
+  setTimeout(() => masuk(kolom3, { durasi: 420, easing: "cubic-bezier(0.34,1.56,0.64,1)" }), t);
+  t += 850;
+  setTimeout(() => masuk(kolom2, { durasi: 420, easing: "cubic-bezier(0.34,1.56,0.64,1)" }), t);
+  t += 900;
+
+  const waktuSuspense = t;
+  setTimeout(() => {
+    const teks = document.createElement("div");
+    teks.className = "podium-suspense";
+    teks.id = "podium-suspense";
+    teks.textContent = "🥁 Dan juaranya adalah…";
+    wadah.before(teks);
+  }, waktuSuspense);
+  t += 1300;
+
+  setTimeout(() => {
+    const teks = $("#podium-suspense");
+    if (teks) teks.remove();
+    masuk(kolom1, { durasi: 520, geser: 14, easing: "cubic-bezier(0.34,1.56,0.64,1)" });
+    mainkanKembangApi();
+  }, t);
 }
 
 /* ------------------------------------------------- Kerangka pertanyaan -- */
