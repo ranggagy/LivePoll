@@ -280,6 +280,12 @@ class RuntimeSesi:
         self.aktif: StatePertanyaan | None = None
         self.poin_total: dict[int, int] = {}
         self.nama: dict[int, str] = {}
+        # Snapshot peringkat SEMUA peserta (bukan cuma top 10) per akhir ronde
+        # sebelumnya — dipakai payload_leaderboard() supaya presenter tahu
+        # peserta mana yang melompat masuk dari LUAR top 10 (bukan cuma
+        # reshuffle di dalam window top 10 yang kelihatan). Lihat
+        # _catat_peringkat_sekarang().
+        self._peringkat_sebelumnya: dict[int, int] = {}
 
         self._kotor = False
         self._moderasi_kotor = False
@@ -386,10 +392,27 @@ class RuntimeSesi:
     def payload_leaderboard(self, batas: int = 10) -> dict:
         urut = self.leaderboard_terurut()
         baris = [
-            {"participant_id": pid, "nickname": self.nama.get(pid) or "Anonim", "poin": poin, "peringkat": i + 1}
+            {
+                "participant_id": pid,
+                "nickname": self.nama.get(pid) or "Anonim",
+                "poin": poin,
+                "peringkat": i + 1,
+                # None kalau peserta ini belum pernah tercatat di snapshot
+                # ronde sebelumnya (baru gabung/baru dapat skor pertamanya).
+                "peringkat_sebelumnya": self._peringkat_sebelumnya.get(pid),
+            }
             for i, (pid, poin) in enumerate(urut[:batas])
         ]
         return {"baris": baris, "total_partisipan": len(self.poin_total)}
+
+    def _catat_peringkat_sekarang(self) -> None:
+        """Simpan snapshot peringkat SEMUA peserta (bukan cuma top 10) sebagai
+        titik banding ronde berikutnya. Dipanggil PERSIS setelah leaderboard
+        untuk penutupan ronde ini selesai dibangun (bukan sebelumnya) —
+        supaya payload yang baru saja dikirim tetap membandingkan diri ke
+        peringkat SEBELUM ronde ini, bukan ke dirinya sendiri."""
+        urut = self.leaderboard_terurut()
+        self._peringkat_sebelumnya = {pid: i + 1 for i, (pid, _) in enumerate(urut)}
 
     def payload_podium(self, participant_id: int | None = None) -> dict:
         urut = [
@@ -674,6 +697,11 @@ class RuntimeSesi:
             return {"ok": True}
 
         leaderboard = self.payload_leaderboard() if self.mode == MODE_QUIZ else None
+        if self.mode == MODE_QUIZ:
+            # Baru catat snapshot SETELAH payload di atas dibangun — payload
+            # yang baru saja dikirim ini masih membandingkan diri ke
+            # peringkat sebelum ronde ini, bukan ke dirinya sendiri.
+            self._catat_peringkat_sekarang()
         await hub.siarkan(
             self.kode,
             {

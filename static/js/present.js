@@ -954,26 +954,33 @@ function isiPapanUtama(papan) {
     // yang masih diingat, bukan cuma langsung muncul di urutan barunya.
     mainkanFlipSimulasi(urut, urutanPapanSebelumnya);
   }
-  tampilkanBeritaKenaikan(papan, urutanPapanSebelumnya);
+  tampilkanBeritaKenaikan(papan);
   urutanPapanSebelumnya = papan.baris.map((b) => String(b.participant_id));
 }
 
-/** "Berita" satu baris di kepala panel: siapa yang naik peringkat paling signifikan sejak update terakhir. */
-function tampilkanBeritaKenaikan(papan, urutanLama) {
+// Ambang minimal kenaikan peringkat supaya diumumkan sebagai "berita" —
+// sengaja tinggi (lonjakan BESAR dari luar top 10), bukan reshuffle kecil
+// yang wajar terjadi tiap soal.
+const AMBANG_BERITA_NAIK = 10;
+
+/**
+ * "Berita" satu baris di kepala panel: siapa yang naik peringkat paling
+ * signifikan sejak ronde sebelumnya. Pakai `peringkat_sebelumnya` dari
+ * SERVER (peringkat SEBENARNYA di antara SEMUA peserta, bukan cuma indeks
+ * di dalam window top 10 yang kelihatan di panel ini) — supaya peserta
+ * yang melompat dari jauh di luar top 10 (mis. peringkat 45 → 3) tetap
+ * terdeteksi, bukan cuma reshuffle di antara yang sudah kelihatan.
+ */
+function tampilkanBeritaKenaikan(papan) {
   const el = $("#papan-berita");
   if (!el) return;
   let terbaik = null; // { nickname, naik }
-  if (urutanLama.length) {
-    papan.baris.forEach((b, indeksBaru) => {
-      const indeksLama = urutanLama.indexOf(String(b.participant_id));
-      if (indeksLama === -1) return;
-      const naik = indeksLama - indeksBaru;
-      if (naik > 0 && (!terbaik || naik > terbaik.naik)) terbaik = { nickname: b.nickname, naik };
-    });
-  }
-  // Ambang 2 peringkat — supaya cuma lonjakan yang beneran berarti yang
-  // diumumkan, bukan tiap pergeseran 1 posisi yang biasa terjadi tiap soal.
-  if (!terbaik || terbaik.naik < 2) {
+  papan.baris.forEach((b) => {
+    if (b.peringkat_sebelumnya == null) return;
+    const naik = b.peringkat_sebelumnya - b.peringkat;
+    if (naik > 0 && (!terbaik || naik > terbaik.naik)) terbaik = { nickname: b.nickname, naik };
+  });
+  if (!terbaik || terbaik.naik < AMBANG_BERITA_NAIK) {
     el.classList.add("sembunyi");
     return;
   }

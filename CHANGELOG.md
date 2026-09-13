@@ -13,6 +13,41 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Ambang "berita naik peringkat" jadi 10, dan diperbaiki agar akurat
+
+User minta ambang kenaikan yang diumumkan dinaikkan dari 2 ke 10
+peringkat. Sambil mengubahnya, ketahuan keterbatasan implementasi
+sebelumnya: perbandingan "naik berapa peringkat" cuma dihitung dari
+posisi di dalam window TOP 10 yang kelihatan di panel (`urutanPapanSebelumnya`,
+array participant_id di render sebelumnya) — jadi kenaikan yang terdeteksi
+maksimal cuma 9 (dari indeks 9 ke indeks 0). Ambang 10 makai data lama ini
+TIDAK AKAN PERNAH bisa terpicu sama sekali, dan yang lebih penting: peserta
+yang melompat dari JAUH di luar top 10 (mis. peringkat 45 → 3, lonjakan
+paling dramatis & justru paling layak diumumkan) tidak akan pernah
+terdeteksi karena dia tidak ada di window lama untuk dibandingkan.
+
+**Perbaikan (backend + frontend)**:
+- `RuntimeSesi._catat_peringkat_sekarang()` (runtime.py, baru) menyimpan
+  snapshot peringkat SEMUA peserta (bukan cuma top 10) tiap soal ditutup.
+- `payload_leaderboard()` sekarang menyertakan `peringkat_sebelumnya` per
+  baris (peringkat asli dari snapshot itu, bisa null kalau peserta baru).
+  Snapshot BARU dicatat SETELAH payload untuk penutupan ronde ini dibangun
+  (bukan sebelum) — supaya payload yang baru saja dikirim tetap
+  membandingkan diri ke keadaan SEBELUM ronde ini.
+- `tampilkanBeritaKenaikan()` (present.js) diganti memakai
+  `b.peringkat_sebelumnya` dari server (peringkat sebenarnya di antara
+  SEMUA peserta) alih-alih indeks window top-10 lokal, dan ambangnya naik
+  jadi 10 (`AMBANG_BERITA_NAIK`).
+
+File: [runtime.py](app/realtime/runtime.py), [present.js](static/js/present.js).
+
+**Verifikasi**: sesi lokal 15 peserta, 2 soal. Soal 1: P15 sengaja jawab
+salah (0 poin, otomatis peringkat 15 — di LUAR top 10 yang tampil). Soal
+2: P15 jawab benar tercepat, 14 peserta lain sengaja jawab salah (poin
+tidak nambah). Hasil: leaderboard menampilkan "🚀 P15 melesat naik 14
+peringkat!" — persis skenario yang sebelumnya MUSTAHIL terdeteksi (peserta
+masuk dari luar top 10 langsung ke puncak), dikonfirmasi lewat screenshot.
+
 ## 2026-09-14 — "Berita" siapa naik peringkat paling signifikan di leaderboard
 
 User minta tambahan kecil di panel leaderboard presenter: selain animasi
