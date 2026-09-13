@@ -1548,23 +1548,17 @@ textarea.input:focus {
 }
 /* Layar lobi kuis (sebelum ada soal dibuka): QR/kode di kiri, peserta
    gabung di kanan, proporsi 50/50 — beda dari kolom sidebar sempit yang
-   dipakai saat soal berjalan. Tinggi kedua kotak disamakan lewat JS
-   (sesuaikanLobi() di present.js) supaya tidak perlu scroll ke bawah;
-   daftar peserta yang kepanjangan di-skalakan mengecil di dalam kotaknya
-   sendiri, bukan di-scroll. */
+   dipakai saat soal berjalan. Kotak kiri (QR) sengaja TIDAK dipaksa ikut
+   tinggi kotak kanan — biar setinggi isinya saja, supaya tombol kontrol di
+   bawah tidak ikut terdorong turun kalau daftar peserta di kanan butuh
+   ruang tinggi. Ukuran bubble peserta diatur JS lewat --bubble-skala
+   (lihat sesuaikanLobi() di present.js) supaya betul-betul mengisi
+   kotaknya, bukan sekadar di-scale-transform (itu bikin bubble kelihatan
+   kecil padahal ruang kosong masih banyak — flex-wrap butuh tahu lebar
+   SEBENARNYA buat menghitung ulang berapa kolom yang muat per baris). */
 .panggung.tampilan-lobi {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-.panggung.tampilan-lobi > .kartu,
-.panggung.tampilan-lobi #kartu-peserta-lobi {
-  display: flex;
-  flex-direction: column;
-}
-.panggung.tampilan-lobi > .kartu > .kartu-isi,
-.panggung.tampilan-lobi #kartu-peserta-lobi > .kartu-isi {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  align-items: start;
 }
 .pertanyaan-besar {
   font-size: clamp(24px, 3.4vw, 42px);
@@ -1629,12 +1623,10 @@ textarea.input:focus {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 10px;
-  /* Dinaikkan dari 320px supaya peserta yang gabung (bisa ratusan) kelihatan
-     lebih banyak sebelum harus di-scroll — kotak ini kini juga lebih lebar
-     (lihat .panggung), jadi ruangnya proporsional. */
-  max-height: 520px;
-  overflow-y: auto;
+  /* Gap ikut mengecil bareng ukuran chip (--bubble-skala dari
+     sesuaikanLobi() di present.js) — kalau gap tetap 10px sementara chip
+     mengecil jauh, jaraknya jadi kelihatan longgar/tidak proporsional. */
+  gap: calc(10px * var(--bubble-skala, 1));
   padding: 4px 2px;
 }
 .qr-lightbox {
@@ -1661,8 +1653,13 @@ textarea.input:focus {
   to { opacity: 1; }
 }
 .peserta-chip {
-  font-size: 13px;
-  padding: 7px 14px;
+  /* --bubble-skala di-set oleh sesuaikanLobi() (present.js) lewat binary
+     search — dicari nilai sebesar mungkin (mendekati 1) yang bikin seluruh
+     grid bubble muat di kotaknya. Sengaja lewat ukuran chip (bikin
+     flex-wrap menghitung ulang jumlah kolom per baris), BUKAN
+     transform: scale pada wadahnya. */
+  font-size: calc(13px * var(--bubble-skala, 1));
+  padding: calc(7px * var(--bubble-skala, 1)) calc(14px * var(--bubble-skala, 1));
   font-weight: 700;
   color: #ffffff;
   border-color: transparent;

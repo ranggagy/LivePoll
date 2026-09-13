@@ -13,6 +13,40 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Perbaiki bug bubble kekecilan + kotak QR tak perlu setinggi kotak peserta
+
+User kirim screenshot produksi (285 peserta): bubble nama kecil sekali
+padahal ruang kosong masih banyak di bawahnya, dan minta kotak QR (kiri)
+tidak usah dipaksa setinggi kotak peserta (kanan) supaya tombol kontrol
+bisa naik ke atas kalau pesertanya sedikit.
+
+**Root cause bug "kecil padahal ruang kosong"**: `sesuaikanLobi()`
+sebelumnya memakai `transform: scale()` + lebar kompensasi (`width:
+100/skala%`, teknik yang sama dipakai untuk anti-potong podium/leaderboard)
+pada wadah bubble. Tapi wadah bubble itu `flex-wrap` — melebarkan
+lebarnya DULU (kompensasi) sebelum di-scale-kecilkan bikin browser
+menghitung ulang wrapping di lebar yang sudah dibesarkan itu, hasilnya
+baris jauh lebih SEDIKIT dari yang seharusnya. Begitu di-scale-kecilkan,
+hasil akhirnya jauh lebih pendek dari ruang yang sebenarnya tersedia —
+persis gejala di screenshot.
+
+**Perbaikan**: ganti pendekatan total — bukan scale transform, tapi
+binary search pada CSS var `--bubble-skala` yang mengecilkan
+font-size/padding tiap chip (`.peserta-chip`, `.peserta-lobi` gap ikut).
+Karena wadahnya tetap flex-wrap di lebar aslinya di setiap langkah uji,
+browser ikut menghitung ulang berapa kolom yang muat per baris — hasilnya
+benar-benar mengisi kotak, bukan menyisakan ruang kosong. Kotak QR (kiri)
+juga sudah tidak dipaksa `height` sama dengan kotak peserta lagi — biar
+setinggi isinya saja; kalau peserta sedikit, kedua kotak & tombol kontrol
+otomatis naik ke atas (tidak lagi dipaksa mengisi seluruh viewport).
+File: [present.js](static/js/present.js), [app.css](static/css/app.css).
+
+**Verifikasi**: sesi lokal, 3 kondisi — 20 peserta (kotak & tombol naik ke
+atas, chip ukuran normal), 60 peserta (masih ukuran normal terbaca jelas),
+285 peserta (persis skenario screenshot user: chip mengecil otomatis tapi
+`scrollHeight` wadah 639px vs `clientHeight` kotak 642px — hampir pas,
+tidak ada ruang kosong terbuang maupun overflow/scroll).
+
 ## 2026-09-13 — Layar lobi presenter dibagi 2 kolom (QR | Peserta Bergabung)
 
 User minta kotak QR dan "Peserta Bergabung" di layar lobi presenter

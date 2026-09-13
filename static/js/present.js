@@ -174,62 +174,74 @@ function skalakanPapanUtama() {
 }
 
 /**
- * Layar lobi kuis: kotak QR (kiri) dan kotak "Peserta Bergabung" (kanan)
- * dibuat sama tinggi, pas dengan ruang yang tersisa di layar — supaya
- * tidak perlu scroll ke bawah untuk melihat kontrol di bawahnya. Beda
- * dengan sesuaikanUkuranPanggung()/skalakanPapanUtama() (fullscreen-only),
- * ini jalan di mode windowed biasa juga karena lobi sering dilihat sebelum
- * presenter masuk Layar Penuh.
+ * Layar lobi kuis: kotak "Peserta Bergabung" (kanan) dibatasi setinggi
+ * ruang yang tersisa di layar (supaya tombol kontrol di bawahnya tidak
+ * perlu di-scroll), dan bubble nama di dalamnya dicari ukuran SEBESAR
+ * MUNGKIN yang masih muat lewat binary search pada --bubble-skala — bukan
+ * transform: scale pada wadahnya. Alasan: wadah bubble itu flex-wrap,
+ * jadi transform+lebar-kompensasi (dipakai di tempat lain seperti podium)
+ * bikin browser menghitung ulang wrapping-nya di lebar yang DIBESARKAN
+ * dulu sebelum diperkecil — hasilnya baris jauh lebih sedikit dari yang
+ * seharusnya, dan bubble akhir kelihatan kecil padahal kotaknya sendiri
+ * masih menyisakan banyak ruang kosong. Kotak QR (kiri) sengaja TIDAK
+ * disamakan tingginya — biar setinggi isinya saja.
  */
 function sesuaikanLobi() {
   const panggung = $("#panggung");
-  const kartuQr = panggung ? panggung.querySelector(":scope > .kartu") : null;
   const kartuPeserta = $("#kartu-peserta-lobi");
   const wadahPeserta = $("#daftar-peserta-lobi");
   if (
     !panggung ||
     !panggung.classList.contains("tampilan-lobi") ||
-    !kartuQr ||
     !kartuPeserta ||
+    !wadahPeserta ||
     kartuPeserta.classList.contains("sembunyi")
   ) {
     return;
   }
+  const isiKartu = wadahPeserta.closest(".kartu-isi");
+  if (!isiKartu) return;
 
-  kartuQr.style.height = "";
-  kartuPeserta.style.height = "";
-  if (wadahPeserta) {
-    wadahPeserta.style.transform = "";
-    wadahPeserta.style.width = "";
-  }
+  // Reset dulu supaya pengukuran di bawah selalu mulai dari ukuran normal
+  // (skala 1), bukan menumpuk dari hasil perhitungan sebelumnya.
+  isiKartu.style.maxHeight = "";
+  isiKartu.style.overflowY = "";
+  wadahPeserta.style.removeProperty("--bubble-skala");
 
   const kontrol = $("#kontrol");
-  const atasPanggung = panggung.getBoundingClientRect().top;
+  const atasKartu = kartuPeserta.getBoundingClientRect().top;
   let cadanganBawah = 24;
   if (kontrol) {
     const gaya = getComputedStyle(kontrol);
     cadanganBawah += kontrol.offsetHeight + parseFloat(gaya.marginTop || "0");
   }
-  const tersedia = Math.max(260, window.innerHeight - atasPanggung - cadanganBawah);
-  kartuQr.style.height = `${tersedia}px`;
-  kartuPeserta.style.height = `${tersedia}px`;
-
-  if (!wadahPeserta) return;
-  const isiKartu = wadahPeserta.closest(".kartu-isi");
   const kepala = kartuPeserta.querySelector(".kartu-kepala");
   const tinggiKepala = kepala ? kepala.offsetHeight : 0;
-  const gayaIsi = isiKartu ? getComputedStyle(isiKartu) : null;
-  const paddingIsi = gayaIsi
-    ? parseFloat(gayaIsi.paddingTop || "0") + parseFloat(gayaIsi.paddingBottom || "0")
-    : 0;
-  const tersediaPeserta = Math.max(60, tersedia - tinggiKepala - paddingIsi);
-  const dibutuhkan = wadahPeserta.scrollHeight;
-  if (dibutuhkan > tersediaPeserta) {
-    const skala = tersediaPeserta / dibutuhkan;
-    wadahPeserta.style.transformOrigin = "top left";
-    wadahPeserta.style.transform = `scale(${skala})`;
-    wadahPeserta.style.width = `${100 / skala}%`;
+  const batasLayar = Math.max(200, window.innerHeight - atasKartu - cadanganBawah);
+  const batasIsi = Math.max(120, batasLayar - tinggiKepala);
+
+  // Sudah muat di ukuran normal — biarkan kotak setinggi isinya saja,
+  // jangan dipaksa jadi kotak tinggi kosong.
+  if (wadahPeserta.scrollHeight <= batasIsi) {
+    isiKartu.style.maxHeight = `${batasIsi}px`;
+    return;
   }
+
+  // Cari skala terbesar (mendekati 1) yang bikin grid bubble beneran muat.
+  let bawah = 0.28; // lantai keterbacaan, kira-kira ~10px dari basis 13px
+  let atas = 1;
+  for (let i = 0; i < 8; i++) {
+    const tengah = (bawah + atas) / 2;
+    wadahPeserta.style.setProperty("--bubble-skala", tengah.toFixed(3));
+    if (wadahPeserta.scrollHeight <= batasIsi) bawah = tengah;
+    else atas = tengah;
+  }
+  wadahPeserta.style.setProperty("--bubble-skala", bawah.toFixed(3));
+  isiKartu.style.maxHeight = `${batasIsi}px`;
+  // Jaring pengaman kalau peserta ekstrem banyak dan lantai skala masih
+  // menyisakan sedikit kelebihan: kotak ini sendiri yang scroll (bukan
+  // seluruh halaman) daripada sebagian bubble tak pernah terlihat.
+  isiKartu.style.overflowY = wadahPeserta.scrollHeight > batasIsi ? "auto" : "hidden";
 }
 
 // skalakanPapanUtama harus jalan LEBIH DULU: dia menentukan ukuran baris
@@ -761,11 +773,6 @@ function rapikanKolom() {
   const tampilanLobi = !!(kartuPeserta && !kartuPeserta.classList.contains("sembunyi"));
   panggung.classList.toggle("tampilan-lobi", tampilanLobi);
   if (tampilanLobi) sesuaikanLobi();
-  else {
-    if (kartuPeserta) kartuPeserta.style.height = "";
-    const kartuQr = panggung.querySelector(":scope > .kartu");
-    if (kartuQr) kartuQr.style.height = "";
-  }
 }
 
 /* --------------------------------------------- Tahap "belum dibuka" ----- */
