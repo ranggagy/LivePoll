@@ -286,37 +286,81 @@ function tandaiTerkunci(jawabanSaya) {
 // saja), dan supaya indikator naik/turun tahu arah perubahannya.
 let peringkatSebelumnya = null;
 
+/**
+ * Animasikan `elBesar` "terbang" mengecil ke posisi & ukuran `elTujuan`
+ * (teknik FLIP: ukur kotak awal & akhir, animasikan transform di antaranya),
+ * lalu lepas elBesar dan tampilkan elTujuan permanen di tempatnya.
+ */
+function terbangMengecil(elBesar, elTujuan, durasi = 420) {
+  return new Promise((selesai) => {
+    if (!elBesar || !elTujuan) {
+      selesai();
+      return;
+    }
+    if (gerakDikurangi()) {
+      elBesar.remove();
+      elTujuan.style.opacity = "1";
+      selesai();
+      return;
+    }
+    const dari = elBesar.getBoundingClientRect();
+    const ke = elTujuan.getBoundingClientRect();
+    const dx = ke.left + ke.width / 2 - (dari.left + dari.width / 2);
+    const dy = ke.top + ke.height / 2 - (dari.top + dari.height / 2);
+    const skala = Math.max(0.2, Math.min(1, ke.height / dari.height));
+    const anim = elBesar.animate(
+      [
+        { transform: "translate(0,0) scale(1)", opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${skala})`, opacity: 0 },
+      ],
+      { duration: durasi, easing: "cubic-bezier(0.4,0,0.2,1)", fill: "forwards" }
+    );
+    const beres = () => {
+      elBesar.remove();
+      elTujuan.style.opacity = "1";
+      selesai();
+    };
+    anim.onfinish = beres;
+    // Jaring pengaman: tanpa ini elemen bisa tertinggal kalau onfinish tidak
+    // pernah terpanggil (tab/panel tidak digambar saat animasi berjalan).
+    setTimeout(beres, durasi + 80);
+  });
+}
+
 function gambarHasilKuis(pribadi, papan) {
   timer.sembunyikan();
   kunciTampilan = `hasil:${idSoal}`;
   const adaSekitar = pribadi && pribadi.sekitar;
-  // Reveal bertahap (angka peringkat besar → mengecil → leaderboard) hanya
+  // Reveal bertahap (poin → pojok kiri, peringkat → pojok kanan) hanya
   // masuk akal kalau ada peringkat untuk ditampilkan dan gerak tidak dimatikan.
-  const adaRevealBesar = pribadi && pribadi.peringkat && !gerakDikurangi();
+  const adaReveal = pribadi && pribadi.peringkat != null && !gerakDikurangi();
   const menunggu = gantiTampilan(panggung, () => {
     const el = document.createElement("div");
-    el.className = "tengah";
+    el.className = "hasil-kuis-wadah";
     const benar = pribadi && pribadi.benar;
     const menjawab = pribadi && pribadi.menjawab;
     el.innerHTML = `
-      <div class="lencana-hasil ${benar ? "" : "salah"}">${benar ? "✓" : menjawab ? "✕" : "—"}</div>
-      <div class="tebal" style="font-size:15px;color:${benar ? "var(--benar)" : "var(--danger)"}">
-        ${benar ? "Jawaban Benar" : menjawab ? "Jawaban Salah" : "Tidak Sempat Menjawab"}
+      <div class="hasil-pojok kiri" id="pojok-poin">
+        <span class="hasil-pojok-nilai" id="pojok-poin-nilai">+0</span>
+        <span class="hasil-pojok-label">poin</span>
       </div>
-      <div class="angka-besar mt-8" id="poin-didapat">+0</div>
-      <div class="muted">poin diperoleh</div>
-      ${adaRevealBesar ? `
-      <div class="peringkat-besar" id="peringkat-besar">
-        <div class="peringkat-besar-label">Peringkat Kamu</div>
-        <div class="peringkat-besar-angka" id="peringkat-besar-angka">0</div>
-        <div class="peringkat-besar-delta" id="peringkat-besar-delta"></div>
-      </div>` : ""}
-      <div class="mt-24 peringkat-ringkas" id="peringkat-ringkas" style="padding-top:20px;border-top:1px solid var(--line)">
-        <div class="muted">Total poin kamu</div>
-        <div class="tebal mt-8" style="font-size:22px">
-          <span id="total-poin">0</span> pts
-          ${pribadi && pribadi.peringkat ? `· Peringkat #${pribadi.peringkat}` : ""}
+      <div class="hasil-pojok kanan" id="pojok-peringkat">
+        <span class="hasil-pojok-label">Peringkat</span>
+        <span class="hasil-pojok-nilai" id="pojok-peringkat-nilai">#0</span>
+      </div>
+      <div class="tengah">
+        <div class="lencana-hasil ${benar ? "" : "salah"}">${benar ? "✓" : menjawab ? "✕" : "—"}</div>
+        <div class="tebal" style="font-size:15px;color:${benar ? "var(--benar)" : "var(--danger)"}">
+          ${benar ? "Jawaban Benar" : menjawab ? "Jawaban Salah" : "Tidak Sempat Menjawab"}
         </div>
+        <div class="angka-besar mt-8" id="poin-didapat">+0</div>
+        <div class="muted" id="label-poin-diperoleh">poin diperoleh</div>
+        ${adaReveal ? `
+        <div class="peringkat-besar" id="peringkat-besar">
+          <div class="peringkat-besar-label">Peringkat Kamu</div>
+          <div class="peringkat-besar-angka" id="peringkat-besar-angka">0</div>
+          <div class="peringkat-besar-delta" id="peringkat-besar-delta"></div>
+        </div>` : ""}
       </div>
       ${adaSekitar ? `<div class="mt-24" style="text-align:left" id="papan-sekitar"></div>` : ""}`;
     return el;
@@ -326,33 +370,53 @@ function gambarHasilKuis(pribadi, papan) {
     const poin = $("#poin-didapat");
     if (poin) animasiAngka(poin, (pribadi && pribadi.poin) || 0, { awalan: "+", durasi: 900 });
 
-    if (adaRevealBesar) {
-      // Tahan dulu total-poin & papan-sekitar (sudah dirender, tapi
-      // transparan) supaya urutan reveal-nya: poin → peringkat besar di
-      // tengah (jalan dari peringkat lama ke baru) → mengecil → leaderboard.
-      setTimeout(() => mainkanRevealPeringkat(pribadi, adaSekitar), 900);
+    if (adaReveal) {
+      // Tahan sebentar biar angka +poin sempat dibaca, baru terbang mengecil
+      // ke pojok kiri atas — lalu giliran peringkat besar di tengah, dan
+      // akhirnya dia juga terbang ke pojok kanan atas sebelum leaderboard
+      // di bawahnya terbuka.
+      setTimeout(() => mainkanRevealPoin(pribadi, adaSekitar), 900);
     } else {
-      selesaikanRevealPeringkat(pribadi, adaSekitar);
+      selesaikanTanpaReveal(pribadi, adaSekitar);
     }
   });
 }
 
-/** Angka peringkat besar di tengah, berjalan dari peringkat lama ke baru, lalu mengecil jadi ringkasan. */
+/** Angka +poin terbang mengecil ke chip pojok kiri atas, lalu lanjut ke reveal peringkat. */
+function mainkanRevealPoin(pribadi, adaSekitar) {
+  const poinBesar = $("#poin-didapat");
+  const labelKecil = $("#label-poin-diperoleh");
+  const pojokNilai = $("#pojok-poin-nilai");
+  if (pojokNilai) pojokNilai.textContent = `+${(pribadi && pribadi.poin) || 0}`;
+  if (labelKecil) {
+    labelKecil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" });
+    setTimeout(() => labelKecil.remove(), 180);
+  }
+  terbangMengecil(poinBesar, $("#pojok-poin"), 420).then(() => mainkanRevealPeringkat(pribadi, adaSekitar));
+}
+
+/** Angka peringkat besar di tengah, berjalan dari peringkat lama ke baru, lalu terbang mengecil ke pojok kanan atas. */
 function mainkanRevealPeringkat(pribadi, adaSekitar) {
   const wadah = $("#peringkat-besar");
   const angkaEl = $("#peringkat-besar-angka");
   const deltaEl = $("#peringkat-besar-delta");
+  const pojokNilai = $("#pojok-peringkat-nilai");
   if (!wadah || !angkaEl) {
-    selesaikanRevealPeringkat(pribadi, adaSekitar);
+    selesaikanTanpaReveal(pribadi, adaSekitar);
     return;
   }
   const dari = peringkatSebelumnya;
   const ke = pribadi.peringkat;
+  if (pojokNilai) pojokNilai.textContent = `#${ke}`;
 
+  // fill "both" (bukan "backwards" saja) supaya opacity:1 di frame terakhir
+  // TETAP dipakai setelah animasi selesai — dengan "backwards" opacity balik
+  // ke aturan CSS dasarnya (opacity:0) begitu animasi berakhir, jadi angka
+  // besarnya sempat "menghilang" lagi sebelum terbang ke pojok.
   wadah.animate([{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }], {
     duration: 380,
     easing: "cubic-bezier(0.34,1.56,0.64,1)",
-    fill: "backwards",
+    fill: "both",
   });
   angkaEl.dataset.nilai = String(dari ?? 0);
   angkaEl.textContent = String(dari ?? 0);
@@ -367,34 +431,40 @@ function mainkanRevealPeringkat(pribadi, adaSekitar) {
   }
   peringkatSebelumnya = ke;
 
-  // Tahan angka besarnya sebentar biar sempat dibaca, baru mengecil dan
-  // masuk ke ringkasan + leaderboard — total durasi disesuaikan supaya
-  // kira-kira selesai bersamaan dengan leaderboard presenter yang otomatis
-  // terbuka 3 detik setelah soal ditutup (lihat present.js: timerLeaderboardOtomatis).
+  // Tahan angka besarnya sebentar biar sempat dibaca, baru terbang mengecil
+  // ke pojok kanan atas — total durasi disesuaikan supaya kira-kira selesai
+  // bersamaan dengan leaderboard presenter yang otomatis terbuka 3 detik
+  // setelah soal ditutup (lihat present.js: timerLeaderboardOtomatis).
   setTimeout(() => {
-    wadah.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.65) translateY(-6px)" }], {
-      duration: 350,
-      easing: "cubic-bezier(0.4,0,0.2,1)",
-      fill: "forwards",
-    });
-    setTimeout(() => wadah.remove(), 350);
-    selesaikanRevealPeringkat(pribadi, adaSekitar);
+    terbangMengecil(wadah, $("#pojok-peringkat"), 420).then(() => selesaikanReveal(pribadi, adaSekitar));
   }, 1150);
 }
 
-/** Tampilkan ringkasan poin + peringkat, dan (kalau ada) papan-sekitar. */
-function selesaikanRevealPeringkat(pribadi, adaSekitar) {
-  const total = $("#total-poin");
-  if (total) animasiAngka(total, (pribadi && pribadi.total_poin) || 0, { durasi: 900 });
+/** Fallback tanpa animasi bertahap: chip pojok langsung tampil, leaderboard langsung terbuka. */
+function selesaikanTanpaReveal(pribadi, adaSekitar) {
+  const pojokPoin = $("#pojok-poin");
+  const pojokPoinNilai = $("#pojok-poin-nilai");
+  if (pojokPoinNilai) pojokPoinNilai.textContent = `+${(pribadi && pribadi.poin) || 0}`;
+  if (pojokPoin) pojokPoin.style.opacity = "1";
+  const labelKecil = $("#label-poin-diperoleh");
+  if (labelKecil) labelKecil.remove();
+
+  if (pribadi && pribadi.peringkat != null) {
+    const pojokPeringkat = $("#pojok-peringkat");
+    const pojokPeringkatNilai = $("#pojok-peringkat-nilai");
+    if (pojokPeringkatNilai) pojokPeringkatNilai.textContent = `#${pribadi.peringkat}`;
+    if (pojokPeringkat) pojokPeringkat.style.opacity = "1";
+    peringkatSebelumnya = pribadi.peringkat;
+  }
+  selesaikanReveal(pribadi, adaSekitar);
+}
+
+/** Perbarui chip total poin di topbar, dan (kalau ada) papan-sekitar. */
+function selesaikanReveal(pribadi, adaSekitar) {
   const chip = $("#chip-poin");
   if (chip && pribadi) {
     chip.classList.remove("sembunyi");
     chip.textContent = `${pribadi.total_poin} pts`;
-  }
-  const ringkas = $("#peringkat-ringkas");
-  if (ringkas) {
-    if (gerakDikurangi()) ringkas.style.opacity = "1";
-    else ringkas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out", fill: "forwards" });
   }
   if (adaSekitar) gambarPapanSekitar(pribadi.sekitar);
 }

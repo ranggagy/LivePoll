@@ -1304,8 +1304,42 @@ textarea.input:focus {
   color: var(--muted);
 }
 
-.peringkat-ringkas {
+/* Wadah relatif supaya dua chip pojok bisa diposisikan absolut di atasnya;
+   padding-top menyediakan ruang buat chip itu tanpa numpuk badge di bawahnya. */
+.hasil-kuis-wadah {
+  position: relative;
+  padding-top: 30px;
+}
+.hasil-pojok {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
   opacity: 0;
+  transition: opacity var(--dur-sedang) ease;
+}
+.hasil-pojok.kiri {
+  left: 0;
+  align-items: flex-start;
+}
+.hasil-pojok.kanan {
+  right: 0;
+  align-items: flex-end;
+}
+.hasil-pojok-nilai {
+  font-weight: 800;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.hasil-pojok-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* --- Status koneksi ------------------------------------------------------ */

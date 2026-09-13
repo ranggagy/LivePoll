@@ -13,6 +13,46 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Reveal hasil kuis di HP: +poin & peringkat "terbang" ke pojok
+
+User minta layout baru untuk reveal di layar HP setelah menjawab: angka
+`+poin` besar mengecil lalu menetap di pojok kiri atas, angka peringkat
+besar mengecil lalu menetap di pojok kanan atas, baru leaderboard
+("Posisimu") di bawahnya — menggantikan desain sebelumnya yang cuma
+fade-out/fade-in di tempat.
+
+**Implementasi**: `terbangMengecil(elBesar, elTujuan)` (play.js) — teknik
+FLIP: ukur `getBoundingClientRect()` elemen besar & elemen tujuan (chip
+pojok, sudah ada di DOM tapi `opacity:0`), animasikan `elBesar` dengan
+`transform: translate()+scale()` dari posisi/ukurannya sendiri ke
+posisi/ukuran tujuan sambil opacity turun ke 0, lalu lepas elBesar dan
+tampilkan chip tujuannya. Dipakai dua kali berurutan: `+poin` → chip
+`#pojok-poin` (kiri), lalu peringkat besar → chip `#pojok-peringkat`
+(kanan). Chip pojok diposisikan absolut di `.hasil-kuis-wadah` (position:
+relative), tidak lagi ada blok "Total poin kamu" terpisah (sudah
+terwakili topbar + chip pojok kiri).
+
+File: [play.js](static/js/play.js), [app.css](static/css/app.css).
+
+**Bug ditemukan+diperbaiki saat verifikasi**: animasi masuk angka
+peringkat besar pakai `fill: "backwards"` — ternyata itu cuma menahan
+frame pertama SEBELUM animasi mulai, BUKAN frame terakhir SESUDAH
+animasi selesai. Akibatnya begitu animasi masuk (380ms) kelar, elemen
+balik ke `opacity:0` bawaan CSS-nya dan sempat tak terlihat sama sekali
+selama sisa waktu "tahan" (±700ms) sebelum akhirnya terbang ke pojok —
+kebetulan tidak selalu ketangkap browser tapi tetap bug nyata. Diperbaiki
+jadi `fill: "both"` supaya opacity:1 dipertahankan sampai animasi
+terbang berikutnya mengambil alih.
+
+**Verifikasi**: sesi kuis lokal, dijawab lewat browser sungguhan sambil
+diinstrumentasi (polling `getComputedStyle().opacity` tiap 100ms).
+Sebelum fix: opacity peringkat besar naik ke 1.00 lalu ANJLOK ke 0.00
+selama ±700ms (bug), baru naik lagi saat terbang. Sesudah fix: opacity
+1.00 stabil sepanjang masa tahan, baru turun mulus saat animasi terbang
+ke pojok dimulai. Layout akhir dicek via screenshot: "+805 POIN" di kiri
+atas, "PERINGKAT #1" di kanan atas, badge di tengah, leaderboard di bawah
+— sesuai yang diminta.
+
 ## 2026-09-11 — Reveal peringkat besar di HP + konfirmasi FLIP leaderboard presenter
 
 User minta animasi "pindah posisi" ala Kahoot di leaderboard, dan urutan
