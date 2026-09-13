@@ -775,6 +775,13 @@ class RuntimeSesi:
                 self._moderasi_kotor = True
             return len(daftar)
 
+    async def ubah_judul(self, judul: str) -> None:
+        """Judul diubah lewat halaman Kelola — perbarui state in-memory dan
+        siarkan supaya layar presenter/HP yang sedang terbuka ikut ter-update
+        tanpa perlu refresh manual."""
+        self.judul = judul
+        await hub.siarkan(self.kode, {"tipe": "sesi_diubah", "sesi": self.payload_sesi()})
+
     async def akhiri_sesi(self) -> None:
         if self.aktif is not None and not self.aktif.ditutup:
             await self.tutup(alasan="sesi_berakhir")

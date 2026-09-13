@@ -908,6 +908,12 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
         );
         catatPapan(pesan.leaderboard);
         break;
+      case "sesi_diubah":
+        if (pesan.sesi && pesan.sesi.judul) {
+          const judul = $("#judul-panggung");
+          if (judul) judul.textContent = pesan.sesi.judul;
+        }
+        break;
       case "peserta_gabung":
         tambahPesertaLobi(pesan.participant_id, pesan.nickname);
         break;

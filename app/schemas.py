@@ -11,6 +11,10 @@ class BuatSesiIn(BaseModel):
     mode: str = MODE_SURVEY
 
 
+class UbahJudulIn(BaseModel):
+    judul: str = Field(min_length=1, max_length=200)
+
+
 class OpsiIn(BaseModel):
     teks: str = Field(min_length=1, max_length=300)
     is_benar: bool = False

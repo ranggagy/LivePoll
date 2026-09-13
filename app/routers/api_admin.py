@@ -27,7 +27,7 @@ from ..models import (
     Sesi,
 )
 from ..realtime.manajer import manajer
-from ..schemas import BuatSesiIn, ModerasiIn, ModerasiSemuaIn, PertanyaanIn, UrutanIn
+from ..schemas import BuatSesiIn, ModerasiIn, ModerasiSemuaIn, PertanyaanIn, UbahJudulIn, UrutanIn
 from ..services.export_excel import buat_excel
 from ..utils import buat_kode_sesi, sekarang
 
@@ -174,6 +174,17 @@ async def akhiri_sesi(kode: str, db: AsyncSession = Depends(dapatkan_db)):
     await db.commit()
     await manajer.buang(sesi.kode_sesi)
     return {"ok": True}
+
+
+@router.patch("/sesi/{kode}/judul")
+async def ubah_judul_sesi(kode: str, payload: UbahJudulIn, db: AsyncSession = Depends(dapatkan_db)):
+    sesi = await ambil_sesi(db, kode)
+    sesi.judul = payload.judul.strip()
+    await db.commit()
+    runtime = await manajer.dapatkan(sesi.kode_sesi)
+    if runtime is not None:
+        await runtime.ubah_judul(sesi.judul)
+    return {"ok": True, "judul": sesi.judul}
 
 
 @router.delete("/sesi/{kode}")

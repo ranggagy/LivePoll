@@ -291,7 +291,7 @@ let peringkatSebelumnya = null;
  * (teknik FLIP: ukur kotak awal & akhir, animasikan transform di antaranya),
  * lalu lepas elBesar dan tampilkan elTujuan permanen di tempatnya.
  */
-function terbangMengecil(elBesar, elTujuan, durasi = 420) {
+function terbangMengecil(elBesar, elTujuan, durasi = 550) {
   return new Promise((selesai) => {
     if (!elBesar || !elTujuan) {
       selesai();
@@ -308,16 +308,28 @@ function terbangMengecil(elBesar, elTujuan, durasi = 420) {
     const dx = ke.left + ke.width / 2 - (dari.left + dari.width / 2);
     const dy = ke.top + ke.height / 2 - (dari.top + dari.height / 2);
     const skala = Math.max(0.2, Math.min(1, ke.height / dari.height));
+    // Tiga keyframe (bukan cuma 2): opacity dipertahankan penuh sampai 72%
+    // perjalanan, dengan sedikit "overshoot" ukuran sebelum menetap pas di
+    // tujuan — jadi kelihatan seperti benda solid terbang lalu mendarat
+    // dengan pas, bukan langsung pudar sejak awal gerak (yang bikin
+    // sebelumnya terasa buru-buru/tidak jelas mendarat ke mana).
     const anim = elBesar.animate(
       [
-        { transform: "translate(0,0) scale(1)", opacity: 1 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${skala})`, opacity: 0 },
+        { transform: "translate(0,0) scale(1)", opacity: 1, offset: 0 },
+        { transform: `translate(${dx * 0.92}px, ${dy * 0.92}px) scale(${skala * 1.08})`, opacity: 1, offset: 0.72 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${skala})`, opacity: 0, offset: 1 },
       ],
-      { duration: durasi, easing: "cubic-bezier(0.4,0,0.2,1)", fill: "forwards" }
+      { duration: durasi, easing: "cubic-bezier(0.3,0.05,0.2,1)", fill: "forwards" }
     );
-    const beres = () => {
-      elBesar.remove();
+    // Chip tujuan mulai memudar masuk sedikit SEBELUM elBesar benar-benar
+    // tak terlihat, supaya keduanya crossfade halus alih-alih ada jeda kosong.
+    const timerMuncul = setTimeout(() => {
       elTujuan.style.opacity = "1";
+    }, durasi * 0.72);
+    const beres = () => {
+      clearTimeout(timerMuncul);
+      elTujuan.style.opacity = "1";
+      elBesar.remove();
       selesai();
     };
     anim.onfinish = beres;
@@ -392,7 +404,7 @@ function mainkanRevealPoin(pribadi, adaSekitar) {
     labelKecil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" });
     setTimeout(() => labelKecil.remove(), 180);
   }
-  terbangMengecil(poinBesar, $("#pojok-poin"), 420).then(() => mainkanRevealPeringkat(pribadi, adaSekitar));
+  terbangMengecil(poinBesar, $("#pojok-poin")).then(() => mainkanRevealPeringkat(pribadi, adaSekitar));
 }
 
 /** Angka peringkat besar di tengah, berjalan dari peringkat lama ke baru, lalu terbang mengecil ke pojok kanan atas. */
@@ -413,31 +425,35 @@ function mainkanRevealPeringkat(pribadi, adaSekitar) {
   // TETAP dipakai setelah animasi selesai — dengan "backwards" opacity balik
   // ke aturan CSS dasarnya (opacity:0) begitu animasi berakhir, jadi angka
   // besarnya sempat "menghilang" lagi sebelum terbang ke pojok.
-  wadah.animate([{ opacity: 0, transform: "scale(0.7)" }, { opacity: 1, transform: "scale(1)" }], {
-    duration: 380,
-    easing: "cubic-bezier(0.34,1.56,0.64,1)",
+  const durasiMasuk = 480;
+  wadah.animate([{ opacity: 0, transform: "scale(0.72)" }, { opacity: 1, transform: "scale(1)" }], {
+    duration: durasiMasuk,
+    easing: "cubic-bezier(0.3,1.2,0.5,1)",
     fill: "both",
   });
   angkaEl.dataset.nilai = String(dari ?? 0);
   angkaEl.textContent = String(dari ?? 0);
-  animasiAngka(angkaEl, ke, { durasi: 650 });
+  const durasiHitung = 750;
+  animasiAngka(angkaEl, ke, { durasi: durasiHitung });
 
   if (dari != null && deltaEl) {
     const selisih = dari - ke; // positif = peringkat membaik (angka mengecil)
     deltaEl.className = "peringkat-besar-delta " + (selisih > 0 ? "naik" : selisih < 0 ? "turun" : "tetap");
     deltaEl.textContent =
       selisih > 0 ? `▲ Naik ${selisih} peringkat` : selisih < 0 ? `▼ Turun ${-selisih} peringkat` : "Peringkat tetap";
-    setTimeout(() => deltaEl.classList.add("tampil"), 650);
+    setTimeout(() => deltaEl.classList.add("tampil"), durasiHitung);
   }
   peringkatSebelumnya = ke;
 
-  // Tahan angka besarnya sebentar biar sempat dibaca, baru terbang mengecil
-  // ke pojok kanan atas — total durasi disesuaikan supaya kira-kira selesai
-  // bersamaan dengan leaderboard presenter yang otomatis terbuka 3 detik
-  // setelah soal ditutup (lihat present.js: timerLeaderboardOtomatis).
+  // Tahan angka besarnya cukup lama supaya betul-betul sempat dibaca
+  // (termasuk indikator naik/turun yang baru muncul setelah hitungan
+  // selesai), baru terbang mengecil ke pojok kanan atas. Total durasi tidak
+  // dikejar pas 3 detik seperti auto-open leaderboard presenter (present.js:
+  // timerLeaderboardOtomatis) — jelas terbaca lebih penting daripada pas
+  // detik, presenter tetap terbuka sendiri di sisinya tanpa harus menunggu HP.
   setTimeout(() => {
-    terbangMengecil(wadah, $("#pojok-peringkat"), 420).then(() => selesaikanReveal(pribadi, adaSekitar));
-  }, 1150);
+    terbangMengecil(wadah, $("#pojok-peringkat")).then(() => selesaikanReveal(pribadi, adaSekitar));
+  }, durasiHitung + 900);
 }
 
 /** Fallback tanpa animasi bertahap: chip pojok langsung tampil, leaderboard langsung terbuka. */
@@ -595,6 +611,13 @@ const soket = new KlienSoket(`/ws/play/${KODE}?token=${encodeURIComponent(tersim
           else gambarHasilSurvey(pesan.pertanyaan, pesan.hasil);
         } else {
           gambarPertanyaan(pesan.pertanyaan, pesan.sudah_menjawab, pesan.jawaban_saya);
+        }
+        break;
+      }
+      case "sesi_diubah": {
+        if (pesan.sesi && pesan.sesi.judul) {
+          const kaki = $("#kaki");
+          if (kaki) kaki.textContent = pesan.sesi.judul;
         }
         break;
       }

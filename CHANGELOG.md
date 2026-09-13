@@ -13,6 +13,59 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-13 — Perlambat reveal HP, besarkan kotak peserta gabung, judul bisa diubah
+
+Tiga permintaan sekaligus dari screenshot layar presenter + feedback soal
+reveal HP:
+
+**1. Reveal peringkat di HP kurang enak dilihat / kerasa buru-buru.**
+Diperlambat & dihaluskan di play.js:
+- Animasi masuk angka peringkat: 380ms → 480ms, easing spring lebih lembut.
+- Waktu tahan sebelum terbang ke pojok: dihitung ulang jadi hitungan-angka
+  (750ms) + 900ms baca = ±1650ms (dari sebelumnya cuma 1150ms flat, dan
+  sempat dimulai sebelum hitungan angkanya sendiri kelar).
+- `terbangMengecil()`: durasi 420ms → 550ms, dan sekarang pakai 3 keyframe
+  (bukan 2) — opacity dipertahankan penuh sampai 72% perjalanan dengan
+  sedikit overshoot ukuran sebelum menetap, jadi kelihatan seperti benda
+  terbang & mendarat, bukan langsung pudar sejak awal gerak. Chip tujuan
+  juga mulai fade-in sedikit sebelum elemen besarnya benar-benar hilang
+  (crossfade, bukan jeda kosong).
+- Total durasi reveal sekarang ±4 detik (dari ±3), sengaja tidak dikejar pas
+  3 detik seperti auto-open leaderboard presenter — jelas terbaca lebih
+  penting daripada pas detik.
+
+**2. Kotak "Peserta Bergabung" kekecilan dibanding kotak QR/soal.**
+`.panggung` grid kolom kanan: 320px → 420px (kotak QR di kiri otomatis
+menyesuaikan lewat `1fr`), `.peserta-lobi` max-height: 320px → 520px
+(lebih banyak nama kelihatan sebelum harus scroll), dan kotak QR sendiri
+dikecilkan dikit (gambar QR 168px→132px, angka kode raksasa clamp
+40-76px→32-58px) supaya kotak kiri juga tidak makin lebar cuma buat teks
+kode yang sudah cukup besar. File: [app.css](static/css/app.css).
+
+**3. Judul sesi sekarang bisa diubah.** Tombol ✎ di sebelah judul di
+halaman Kelola Sesi — klik untuk masuk mode edit (input inline), Enter/klik
+di luar untuk simpan, Escape untuk batal. Backend: endpoint baru
+`PATCH /api/admin/sesi/{kode}/judul` (skema `UbahJudulIn`). Kalau sesi
+sedang live, `RuntimeSesi.ubah_judul()` memperbarui judul in-memory DAN
+menyiarkan event `sesi_diubah` ke semua koneksi WS sesi itu — jadi layar
+presenter (`#judul-panggung`) dan footer judul di HP (`#kaki`) yang sedang
+terbuka ikut ter-update live tanpa perlu refresh.
+File: [schemas.py](app/schemas.py), [api_admin.py](app/routers/api_admin.py),
+[runtime.py](app/realtime/runtime.py), [kelola.html](templates/kelola.html),
+[kelola.js](static/js/kelola.js), [present.html](templates/present.html),
+[present.js](static/js/present.js), [play.js](static/js/play.js).
+
+**Verifikasi**: sesi kuis lokal dengan 15 partisipan (untuk cek kotak
+peserta gabung) + 1 partisipan browser sungguhan (untuk cek reveal &
+judul). Dikonfirmasi: (a) kotak peserta gabung menampilkan 15 bubble tanpa
+scroll di viewport 1600px lebar, kotak QR di kirinya proporsional lebih
+kecil; (b) edit judul di Kelola tersimpan (dicek lewat `blur()`, network
+request PATCH terkirim) dan langsung muncul di tab presenter DAN tab HP
+yang sedang terbuka tanpa refresh; (c) instrumentasi opacity 100ms
+menunjukkan angka peringkat besar bertahan penuh (opacity 1.00) ±1.6 detik
+sebelum mulai terbang, jauh lebih lama dari sebelumnya yang langsung mulai
+pudar begitu hitungan selesai.
+
 ## 2026-09-13 — Reveal hasil kuis di HP: +poin & peringkat "terbang" ke pojok
 
 User minta layout baru untuk reveal di layar HP setelah menjawab: angka

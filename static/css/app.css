@@ -1536,7 +1536,10 @@ textarea.input:focus {
 
 .panggung {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  /* Kolom kanan (peserta gabung/moderasi) sengaja dilebarkan dari 320px
+     supaya daftar peserta yang gabung kelihatan lebih banyak sebelum harus
+     di-scroll — kotak kiri (QR/soal) otomatis menyesuaikan lewat 1fr. */
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 22px;
   align-items: start;
 }
@@ -1589,15 +1592,15 @@ textarea.input:focus {
 }
 .qr-kotak img,
 .qr-kotak object {
-  width: 168px;
-  height: 168px;
+  width: 132px;
+  height: 132px;
   border-radius: var(--r-md);
   background: var(--putih);
   padding: 8px;
   border: 1px solid var(--line);
 }
 .kode-raksasa {
-  font-size: clamp(40px, 7vw, 76px);
+  font-size: clamp(32px, 5.2vw, 58px);
   font-weight: 800;
   letter-spacing: 0.1em;
   line-height: 1;
@@ -1610,7 +1613,10 @@ textarea.input:focus {
      terlihat seperti grid rapi 2 per baris, bukan acak). */
   align-items: flex-start;
   gap: 10px;
-  max-height: 320px;
+  /* Dinaikkan dari 320px supaya peserta yang gabung (bisa ratusan) kelihatan
+     lebih banyak sebelum harus di-scroll — kotak ini kini juga lebih lebar
+     (lihat .panggung), jadi ruangnya proporsional. */
+  max-height: 520px;
   overflow-y: auto;
   padding: 4px 2px;
 }

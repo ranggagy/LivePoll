@@ -133,6 +133,61 @@ async function tanganiAksi(aksi, q, indeks) {
   }
 }
 
+/* ------------------------------------------------------- Ubah judul ---- */
+
+$("#btn-ubah-judul").addEventListener("click", () => {
+  const label = $("#judul-sesi");
+  if ($("#input-judul-sesi")) return; // sudah dalam mode edit
+
+  const input = document.createElement("input");
+  input.className = "input";
+  input.id = "input-judul-sesi";
+  input.maxLength = 200;
+  input.value = sesi.judul;
+  input.style.font = getComputedStyle(label).font;
+  label.replaceWith(input);
+  $("#btn-ubah-judul").classList.add("sembunyi");
+  input.focus();
+  input.select();
+
+  let selesai = false;
+  const simpan = async () => {
+    if (selesai) return;
+    selesai = true;
+    const judulBaru = input.value.trim();
+    if (!judulBaru || judulBaru === sesi.judul) {
+      batal();
+      return;
+    }
+    try {
+      await api(`/api/admin/sesi/${KODE}/judul`, { method: "PATCH", body: { judul: judulBaru } });
+      sesi.judul = judulBaru;
+      toast("Judul sesi diperbarui", "sukses");
+    } catch (err) {
+      toast(err.message, "galat");
+    }
+    tutupInput();
+  };
+  const batal = () => {
+    selesai = true;
+    tutupInput();
+  };
+  const tutupInput = () => {
+    input.replaceWith(label);
+    label.textContent = sesi.judul;
+    $("#btn-ubah-judul").classList.remove("sembunyi");
+  };
+
+  input.addEventListener("blur", simpan);
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") input.blur();
+    else if (ev.key === "Escape") {
+      selesai = true; // blur masih akan terpicu, tapi batal() sudah lebih dulu tutup
+      batal();
+    }
+  });
+});
+
 $("#btn-akhiri").addEventListener("click", async () => {
   if (!confirm("Akhiri sesi ini? Partisipan tidak bisa menjawab lagi setelah ditutup.")) return;
   try {
