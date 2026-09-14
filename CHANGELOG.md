@@ -13,6 +13,38 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Soal terakhir: leaderboard sisipan tidak lagi muncul otomatis sebelum "Lihat Hasil"
+
+**Masalah:** Setelah soal ditutup, leaderboard sisipan (interim, bukan podium akhir)
+selalu muncul otomatis 3 detik kemudian — termasuk untuk soal TERAKHIR. Padahal
+untuk soal terakhir, tombol "Berikutnya" berubah jadi "Lihat Hasil →" yang begitu
+diklik langsung mengakhiri sesi dan menampilkan layar podium dengan reveal
+bertahap (`gambarSesiSelesai` → `mainkanRevealPodium`, tabel 10→4 baris fade-in
+lalu podium 🥉🥈🥇 dengan jeda "Dan juaranya adalah…"). Leaderboard sisipan yang
+nongol duluan itu jadi "bocoran" yang merusak momen podium — presenter maunya
+semua ditahan dulu sampai diklik, baru semuanya diungkap satu-satu.
+
+**Perbaikan:** Di `static/js/present.js`, handler websocket `pertanyaan_ditutup`
+sekarang mengecek `pertanyaan.total_soal`/`urutan_ke` untuk tahu apakah ini soal
+terakhir. Timer auto-buka leaderboard sisipan (`setTimeout(bukaLeaderboard, 3000)`)
+hanya dipasang kalau BUKAN soal terakhir. Untuk soal terakhir, presenter tetap
+melihat grafik hasil soal itu sampai mereka sendiri klik "Lihat Hasil →" —
+setelah itu alur `akhiri sesi` → `sesi_selesai` → `gambarSesiSelesai` yang sudah
+ada (dan sudah menyembunyikan semuanya lalu mengungkap bertahap) berjalan seperti
+biasa, tanpa didahului leaderboard sisipan.
+
+**Verifikasi:** Sesi quiz 2 soal lokal (`Q75FU3`), 1 partisipan. Soal 1 ditutup →
+leaderboard sisipan tetap muncul otomatis seperti biasa (perilaku lama
+dipertahankan untuk soal bukan-terakhir). Soal 2 (terakhir) ditutup → ditunggu
+6 detik nyata (real wall-clock, bukan cuma round-trip tool) → screenshot
+menunjukkan presenter TETAP di grafik hasil soal 2, leaderboard sisipan tidak
+muncul, tombol "Lihat Hasil →" aktif. Klik tombol tersebut → screenshot
+berikutnya menunjukkan layar "🎉 Kuis Telah Berakhir!" dengan podium
+(Tester1 di posisi #1) sudah tampil — reveal bertahap dari `mainkanRevealPodium`
+berjalan seperti dirancang.
+
+**File:** `static/js/present.js`.
+
 ## 2026-09-14 — Ambang "berita naik peringkat" jadi 10, dan diperbaiki agar akurat
 
 User minta ambang kenaikan yang diumumkan dinaikkan dari 2 ke 10

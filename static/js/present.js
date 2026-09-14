@@ -1309,17 +1309,25 @@ const soket = new KlienSoket(`/ws/present/${KODE}`, {
       case "online":
         catatOnline(pesan.jumlah);
         break;
-      case "pertanyaan_ditutup":
+      case "pertanyaan_ditutup": {
         timer.sembunyikan();
         terapkanPertanyaan(pesan.pertanyaan, pesan.hasil, null);
         catatPapan(pesan.leaderboard);
         toast(pesan.alasan === "timer" ? "Waktu habis — soal ditutup" : "Soal ditutup");
         // Grafik hasil tampil dulu, lalu leaderboard muncul sendiri 3 detik
         // kemudian — presenter tetap bisa buka manual lebih cepat, atau
-        // batal otomatis kalau keburu pindah soal.
+        // batal otomatis kalau keburu pindah soal. Khusus soal TERAKHIR,
+        // leaderboard sisipan ini dilewati sama sekali: presenter menunggu
+        // klik "Lihat Hasil →" sendiri, yang langsung mengakhiri sesi dan
+        // menampilkan podium dengan reveal bertahap (gambarSesiSelesai) —
+        // jadi leaderboard sisipan tidak perlu (dan tidak boleh) nongol dulu
+        // sebelum momen podium itu.
+        const p = pesan.pertanyaan;
+        const soalTerakhir = p && p.total_soal != null && p.urutan_ke >= p.total_soal;
         batalkanLeaderboardOtomatis();
-        if (KUIS) timerLeaderboardOtomatis = setTimeout(bukaLeaderboard, 3000);
+        if (KUIS && !soalTerakhir) timerLeaderboardOtomatis = setTimeout(bukaLeaderboard, 3000);
         break;
+      }
       case "sesi_selesai":
         // Sesi benar-benar berakhir — selalu tampilkan layar penutup,
         // menimpa apa pun yang sedang dilihat presenter saat itu.
