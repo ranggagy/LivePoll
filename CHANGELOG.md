@@ -13,6 +13,38 @@ Untuk dokumentasi arsitektur/setup lengkap, lihat [README.md](README.md).
 
 _(kosong — semua perubahan terakhir sudah di-commit)_
 
+## 2026-09-14 — Podium tidak lagi kelihatan penuh sebelum reveal bertahap
+
+**Masalah:** Presenter melaporkan begitu klik "Lihat Hasil →", podium dan
+tabel peringkat 4-10 langsung kelihatan semua, bukan tersembunyi dulu lalu
+diungkap satu-satu seperti seharusnya. Root cause: di `mainkanRevealPodium()`,
+baris tabel (`.papan-lanjutan .papan-baris`) memang sudah diset `opacity: 0`
+secara SINKRON sebelum dijadwalkan reveal-nya lewat `setTimeout` — tapi
+ketiga kolom podium (`kolom3`, `kolom2`, `kolom1`) TIDAK. Opacity-nya baru
+diset 0 di dalam fungsi `masuk()`, yang baru dipanggil tepat saat giliran
+kolom itu tampil (bisa sampai ~3.5 detik kemudian). Artinya selama jeda
+menunggu itu, ketiga kolom podium kelihatan penuh dengan opacity default
+(1) — presenter melihat podium "sudah ada" sebelum momen pengungkapannya.
+
+**Perbaikan:** Tambah langkah di awal `mainkanRevealPodium()` (setelah
+pengecekan `gerakDikurangi()`) yang menyembunyikan `kolom3`, `kolom2`,
+`kolom1` sekaligus (`transition: none` + `opacity: 0`) — sama seperti yang
+sudah dilakukan untuk baris tabel — sebelum jadwal `setTimeout` bertahap
+berjalan.
+
+**Verifikasi:** Sesi quiz 6 partisipan (`B3X6XS`) di server lokal. Karena
+delay tool sandbox membuat screenshot manual tidak bisa dipercaya untuk
+mengukur milidetik (dikonfirmasi lagi di sesi ini), verifikasi dilakukan
+dengan `MutationObserver` yang dipasang lewat JS di halaman itu sendiri
+(pakai `performance.now()`, bukan jam sisi tool) untuk mencatat kapan tiap
+elemen berubah. Hasilnya: `podium-1/2/3` diberi `opacity: 0` PERSIS di saat
+DOM podium baru ditambahkan (t=5449ms), dan elemen `podium-suspense`
+("Dan juaranya adalah…") baru muncul ~2.2 detik kemudian (t=7622ms) —
+membuktikan podium benar-benar tersembunyi sejak awal dan baru diungkap
+bertahap sesuai jadwal, bukan langsung kelihatan.
+
+**File:** `static/js/present.js`.
+
 ## 2026-09-14 — Soal terakhir: leaderboard sisipan tidak lagi muncul otomatis sebelum "Lihat Hasil"
 
 **Masalah:** Setelah soal ditutup, leaderboard sisipan (interim, bukan podium akhir)

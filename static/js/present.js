@@ -607,6 +607,17 @@ function mainkanRevealPodium() {
     return;
   }
 
+  // Sembunyikan podium 🥉🥈🥇 SEKARANG JUGA (sinkron, sebelum baris di bawah
+  // sempat dicat browser) — sebelumnya opacity-nya baru diset 0 di dalam
+  // masuk(), yaitu persis saat giliran reveal-nya tiba, jadi selama jeda
+  // menunggu (sampai ~2 detik) ketiga kolom ini kelihatan penuh duluan,
+  // seolah tabel & podium sudah muncul semua sebelum "diungkap".
+  [kolom3, kolom2, kolom1].forEach((el) => {
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.opacity = "0";
+  });
+
   const masuk = (el, { durasi = 220, geser = 8, easing = "ease-out" } = {}) => {
     if (!el) return;
     // .papan-baris (baris tabel) punya CSS "transition: opacity ..." sendiri
